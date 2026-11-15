@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import logger from 'jet-logger';
 import morgan from 'morgan';
 import path from 'path';
+import cors from 'cors';
 
 import { RouteError } from '#src/common/classes/route-errors.ts';
 import HttpStatusCodes from '#src/common/constants/HttpStatusCodes.ts';
@@ -22,6 +23,15 @@ import { Env, NodeEnvs } from './common/constants/env.constants.ts';
 const app = express();
 
 // =============================== Middleware ============================== //
+// Habilitar CORS para permitir peticiones desde el Frontend (Vue / Vite)
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+
+// Basic middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Basic middleware
 app.use(express.json());
