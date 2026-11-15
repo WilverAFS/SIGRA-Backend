@@ -1,0 +1,226 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// 2. TABLAS CATÁLOGO ESTRUCTURALES
+// ============================================================================
+
+model Institute {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(30)
+  name      String   @db.VarChar(180)
+  shortName String   @map("short_name") @db.VarChar(30)
+  city      String   @db.VarChar(100)
+  state     String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  careers Career[]
+  users   User[]
+
+  @@map("institutes")
+}
+
+model Career {
+  id             Int      @id @default(autoincrement())
+  instituteId    Int      @map("institute_id")
+  curriculumCode String   @map("curriculum_code") @db.VarChar(40)
+  name           String   @db.VarChar(180)
+  shortName      String   @map("short_name") @db.VarChar(20)
+  totalSemesters Int      @default(9) @map("total_semesters") @db.SmallInt
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Restrict)
+  users     User[]
+  subjects  Subject[]
+
+  @@unique([instituteId, curriculumCode], map: "uq_careers_institute_code")
+  @@index([instituteId], map: "idx_careers_institute_id")
+  @@map("careers")
+}
+
+model AcademicPeriod {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(20)
+  name      String   @db.VarChar(100)
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  isCurrent Boolean  @default(false) @map("is_current")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  subjectAssignments SubjectAssignment[]
+  materials          Material[]
+
+  @@map("academic_periods")
+}
+
+// ============================================================================
+// 3. CONTROL DE ACCESO Y USUARIOS (RBAC)
+// ============================================================================
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(30)
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  roleId          Int       @map("role_id")
+  instituteId     Int       @map("institute_id")
+  careerId        Int?      @map("career_id")
+  institutionalId String    @map("institutional_id") @db.VarChar(30)
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(120)
+  email           String    @unique @db.VarChar(150)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  isActive        Boolean   @default(true) @map("is_active")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  role                 Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  institute            Institute           @relation(fields: [instituteId], references: [id], onDelete: Restrict)
+  career               Career?             @relation(fields: [careerId], references: [id], onDelete: Restrict)
+  assignmentsAsTeacher SubjectAssignment[] @relation("TeacherAssignments")
+  assignmentsCreated   SubjectAssignment[] @relation("AdminAssignments")
+  authoredMaterials    Material[]          @relation("MaterialAuthor")
+  uploadedVersions     MaterialVersion[]   @relation("VersionUploader")
+  auditLogs            AuditLog[]
+
+  @@unique([instituteId, institutionalId], map: "uq_users_institute_institutional_id")
+  @@index([roleId, careerId], map: "idx_users_role_career")
+  @@map("users")
+}
+
+// ============================================================================
+// 4. RETÍCULA ACADÉMICA Y CARGA DOCENTE
+// ============================================================================
+
+model Subject {
+  id              Int      @id @default(autoincrement())
+  careerId        Int      @map("career_id")
+  code            String   @db.VarChar(30)
+  name            String   @db.VarChar(180)
+  semester        Int      @db.SmallInt
+  creditsTheory   Int      @default(2) @map("credits_theory") @db.SmallInt
+  creditsPractice Int      @default(3) @map("credits_practice") @db.SmallInt
+  totalCredits    Int      @map("total_credits") @db.SmallInt
+  syllabusSummary String?  @map("syllabus_summary") @db.Text
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  career             Career              @relation(fields: [careerId], references: [id], onDelete: Restrict)
+  subjectAssignments SubjectAssignment[]
+  materials          Material[]
+
+  @@unique([careerId, code], map: "uq_subjects_career_code")
+  @@index([careerId, semester], map: "idx_subjects_career_semester")
+  @@map("subjects")
+}
+
+model SubjectAssignment {
+  id               Int      @id @default(autoincrement())
+  subjectId        Int      @map("subject_id")
+  teacherId        Int      @map("teacher_id")
+  academicPeriodId Int      @map("academic_period_id")
+  groupCode        String   @map("group_code") @db.VarChar(20)
+  assignedBy       Int?     @map("assigned_by")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  subject        Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher        User           @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Restrict)
+  academicPeriod AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  assigner       User?          @relation("AdminAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([subjectId, teacherId, academicPeriodId, groupCode], map: "uq_subject_assignment_unique")
+  @@index([teacherId, academicPeriodId], map: "idx_assignments_teacher")
+  @@map("subject_assignments")
+}
+
+// ============================================================================
+// 5. REPOSITORIO DE PLANEACIONES Y RECURSOS EDUCATIVOS (VERSIONADO)
+// ============================================================================
+
+model Material {
+  id                  Int       @id @default(autoincrement())
+  subjectId           Int       @map("subject_id")
+  authorId            Int       @map("author_id")
+  academicPeriodId    Int       @map("academic_period_id")
+  title               String    @db.VarChar(220)
+  description         String?   @db.Text
+  materialType        String    @map("material_type") @db.VarChar(30)
+  visibility          String    @default("ESTUDIANTES_Y_DOCENTES") @db.VarChar(30)
+  currentVersion      Int       @default(1) @map("current_version")
+  syllabusChangesNote String?   @map("syllabus_changes_note") @db.Text
+  downloadCount       Int       @default(0) @map("download_count")
+  isApproved          Boolean   @default(true) @map("is_approved")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz
+
+  subject        Subject           @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  author         User              @relation("MaterialAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  academicPeriod AcademicPeriod    @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  versions       MaterialVersion[]
+
+  @@index([subjectId, materialType, visibility, academicPeriodId], map: "idx_materials_subject_type_vis")
+  @@index([authorId], map: "idx_materials_author_id")
+  @@map("materials")
+}
+
+model MaterialVersion {
+  id               Int      @id @default(autoincrement())
+  materialId       Int      @map("material_id")
+  versionNumber    Int      @map("version_number")
+  originalFileName String   @map("original_file_name") @db.VarChar(255)
+  storagePath      String   @map("storage_path") @db.VarChar(500)
+  mimeType         String   @map("mime_type") @db.VarChar(120)
+  fileSizeBytes    BigInt   @map("file_size_bytes")
+  checksumSha256   String   @map("checksum_sha256") @db.VarChar(64)
+  changelog        String?  @db.Text
+  uploadedBy       Int      @map("uploaded_by")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  uploader User     @relation("VersionUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+
+  @@unique([materialId, versionNumber], map: "uq_material_version_number")
+  @@index([materialId, versionNumber(sort: Desc)], map: "idx_material_versions_material")
+  @@map("material_versions")
+}
+
+// ============================================================================
+// 6. BITÁCORA DE AUDITORÍA DE DOMINIO (CONSUMIDA VÍA RABBITMQ)
+// ============================================================================
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String   @db.VarChar(60)
+  entityName String   @map("entity_name") @db.VarChar(60)
+  entityId   Int?     @map("entity_id")
+  metadata   Json?    @db.JsonB
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityName, createdAt(sort: Desc)], map: "idx_audit_logs_entity_date")
+  @@map("audit_logs")
+}
