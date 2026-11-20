@@ -10,7 +10,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   // global ignores
-  globalIgnores(['**/public/**/lib/**']),
+  globalIgnores(['prisma.config.ts']),
   // linting rules (code quality only)
   {
     files: ['**/*.{ts,tsx}'],

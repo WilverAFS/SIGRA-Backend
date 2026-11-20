@@ -8,9 +8,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "start": "node --env-file-if-exists=config/.env.production src/main.ts",
-    "test": "node --env-file=config/.env.test --test --test-concurrency=1",
+    "test": "node --env-file=config/.env.test --test --test-concurrency=1 \"tests/**/*.test.ts\"",
     "typecheck": "tsc -b --noEmit",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma skills sync || exit 0",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
   },
   "imports": {
     "#src/*": "./src/*"
@@ -23,11 +25,11 @@
     "amqplib": "^2.3.1",
     "cors": "^2.8.6",
     "express": "^5.3.0",
-    "express-zod-safe": "^3.2.1",
     "helmet": "^8.3.0",
     "jet-logger": "3.0.0",
     "morgan": "^1.12.1",
     "redis": "^6.3.1",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^14.0.3",
     "zod": "^4.6.7"
   },
@@ -42,6 +44,7 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^26.6.5",
     "@types/supertest": "^7.2.1",
+    "@types/swagger-ui-express": "^4.1.8",
     "connect-livereload": "^0.6.1",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
@@ -55,6 +58,6 @@
     "typescript-eslint": "^8.71.1"
   },
   "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "node prisma/seed.ts"
   }
 }

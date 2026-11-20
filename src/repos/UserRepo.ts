@@ -1,110 +1,154 @@
-import { type UserEntity } from '#src/entities/User/index.ts';
+import type { Prisma } from '@prisma/client';
 
-import orm from './MockOrm.ts';
+import prisma from '#src/common/infra/prisma.ts';
+import { toSkipTake } from '#src/common/validation/list-query.ts';
+import type {
+  RoleName,
+  UserListQuery,
+  UserWithRole,
+} from '#src/entities/User/index.ts';
+
+// ========================================================================= //
+//                                 CONSTANTS                                 //
+// ========================================================================= //
+
+const withRole = { role: true } as const;
+
+/** Solo usuarios sin baja lógica (contrato 6.2.3). */
+const notDeleted = { deletedAt: null } as const;
 
 // ========================================================================= //
 //                                 FUNCTIONS                                 //
 // ========================================================================= //
 
 /**
- * See if a user with the given id exists.
+ * Lista paginada con filtros, búsqueda y orden (contrato 6.2.1).
  */
-async function persists(id: string): Promise<boolean> {
-  const db = await orm.openDb();
-  for (const user of db.users) {
-    if (user.id === id) return true;
-  }
-  return false;
+async function findMany(
+  query: UserListQuery,
+): Promise<{ items: UserWithRole[]; total: number }> {
+  const where: Prisma.UserWhereInput = {
+    ...notDeleted,
+    roleId: query.roleId,
+    role: query.role ? { name: query.role } : undefined,
+    careerId: query.careerId,
+    instituteId: query.instituteId,
+    isActive: query.isActive,
+    OR: query.search
+      ? [
+          { firstName: { contains: query.search, mode: 'insensitive' } },
+          { lastName: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+          {
+            institutionalId: { contains: query.search, mode: 'insensitive' },
+          },
+        ]
+      : undefined,
+  };
+  const [items, total] = await prisma.$transaction([
+    prisma.user.findMany({
+      where,
+      include: withRole,
+      orderBy: [{ [query.sort.field]: query.sort.direction }, { id: 'asc' }],
+      ...toSkipTake(query),
+    }),
+    prisma.user.count({ where }),
+  ]);
+  return { items, total };
 }
 
-/**
- * Get all users.
- */
-async function getAll(): Promise<UserEntity[]> {
-  const db = await orm.openDb();
-  return db.users.sort((a, b) => a.id.localeCompare(b.id));
+function findById(id: number): Promise<UserWithRole | null> {
+  return prisma.user.findFirst({
+    where: { id, ...notDeleted },
+    include: withRole,
+  });
 }
 
-/**
- * Add one user.
- */
-async function addOne(user: UserEntity): Promise<void> {
-  const db = await orm.openDb();
-  db.users.push(user);
-  return orm.saveDb(db);
+function create(data: Prisma.UserUncheckedCreateInput): Promise<UserWithRole> {
+  return prisma.user.create({ data, include: withRole });
 }
 
-/**
- * Update a user.
- */
-async function updateOne(user: UserEntity): Promise<void> {
-  const db = await orm.openDb();
-  for (let i = 0; i < db.users.length; i++) {
-    if (db.users[i].id === user.id) {
-      const dbUser = db.users[i];
-      db.users[i] = {
-        ...dbUser,
-        name: user.name,
-        email: user.email,
-      };
-      return orm.saveDb(db);
-    }
-  }
+function update(
+  id: number,
+  data: Prisma.UserUncheckedUpdateInput,
+): Promise<UserWithRole> {
+  return prisma.user.update({ where: { id }, data, include: withRole });
 }
 
-/**
- * Delete one user.
- */
-async function deleteOne(id: string): Promise<void> {
-  const db = await orm.openDb();
-  for (let i = 0; i < db.users.length; i++) {
-    if (db.users[i].id === id) {
-      db.users.splice(i, 1);
-      return orm.saveDb(db);
-    }
-  }
+/** Baja lógica: se registra la fecha y se desactiva la cuenta. */
+async function softDelete(id: number): Promise<void> {
+  await prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date(), isActive: false },
+  });
 }
 
-// ============================ Unit-tests Only ============================ //
-
-/**
- * Delete every user record.
- *
- * @testOnly
- */
-async function deleteAllUsers(): Promise<void> {
-  const db = await orm.openDb();
-  db.users = [];
-  return orm.saveDb(db);
+/** ¿El correo ya lo usa otra cuenta? (incluye bajas lógicas: es único) */
+async function emailTaken(email: string, exceptId?: number): Promise<boolean> {
+  const found = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  return !!found && found.id !== exceptId;
 }
 
-/**
- * Insert copies of `users` with fresh ids; the inputs are not modified.
- *
- * @testOnly
- */
-async function insertMultiple(
-  users: UserEntity[] | readonly UserEntity[],
-): Promise<UserEntity[]> {
-  const db = await orm.openDb();
-  db.users = [...db.users, ...users];
-  await orm.saveDb(db);
-  return [...users];
+/** ¿El identificador institucional ya existe en ese instituto? */
+async function institutionalIdTaken(
+  instituteId: number,
+  institutionalId: string,
+  exceptId?: number,
+): Promise<boolean> {
+  const found = await prisma.user.findUnique({
+    where: {
+      instituteId_institutionalId: { instituteId, institutionalId },
+    },
+    select: { id: true },
+  });
+  return !!found && found.id !== exceptId;
+}
+
+/** Administradores activos, sin contar bajas lógicas. */
+function countActiveAdmins(): Promise<number> {
+  return prisma.user.count({
+    where: { ...notDeleted, isActive: true, role: { name: 'ADMIN' } },
+  });
+}
+
+async function findRoleId(name: RoleName): Promise<number | null> {
+  const role = await prisma.role.findUnique({
+    where: { name },
+    select: { id: true },
+  });
+  return role?.id ?? null;
+}
+
+async function instituteExists(id: number): Promise<boolean> {
+  return (await prisma.institute.count({ where: { id } })) > 0;
+}
+
+async function careerExistsInInstitute(
+  careerId: number,
+  instituteId: number,
+): Promise<boolean> {
+  return (
+    (await prisma.career.count({ where: { id: careerId, instituteId } })) > 0
+  );
 }
 
 // ========================================================================= //
 //                                  EXPORT                                   //
 // ========================================================================= //
 
-export const UserRepoTestOnly = {
-  deleteAllUsers,
-  insertMultiple,
-} as const;
-
 export default {
-  persists,
-  getAll,
-  addOne,
-  updateOne,
-  deleteOne,
+  findMany,
+  findById,
+  create,
+  update,
+  softDelete,
+  emailTaken,
+  institutionalIdTaken,
+  countActiveAdmins,
+  findRoleId,
+  instituteExists,
+  careerExistsInInstitute,
 } as const;

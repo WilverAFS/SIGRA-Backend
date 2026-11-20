@@ -1,29 +1,31 @@
 import { Router } from 'express';
-import validate from 'express-zod-safe';
 
-import HttpStatusCodes from '#src/common/constants/HttpStatusCodes.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
-import User from '#src/entities/User/index.ts';
-import UserService from '#src/services/UserService.ts';
+import { validate } from '#src/common/middleware/validate.ts';
+import {
+  sendCreated,
+  sendPage,
+  sendSuccess,
+} from '#src/common/utils/response.utils.ts';
+import { type IdParams, IdParamsSchema } from '#src/common/validation/rules.ts';
+import {
+  type CreateUserRequest,
+  CreateUserSchema,
+  type UpdateUserRequest,
+  UpdateUserSchema,
+  type UserListQuery,
+  UserListQuerySchema,
+} from '#src/entities/User/index.ts';
+import UserService, { UserMessages } from '#src/services/UserService.ts';
 
 // ========================================================================= //
 //                                 CONSTANTS                                 //
 // ========================================================================= //
 
-// Shorthand for the path strings
-const P = {
-  GET: Paths.Users.Get.PATH,
-  ADD: Paths.Users.Add.PATH,
-  UPDATE: Paths.Users.Update.PATH,
-  DELETE: Paths.Users.Delete.PATH,
-} as const;
+const P = Paths.Users;
 
-// Middlware `validators`
-const V = {
-  add: validate({ body: { user: User.Schemas.Input } }),
-  update: validate({ body: { user: User.Schemas.Main } }),
-  delete: validate({ params: { id: User.Schemas.Id } }),
-} as const;
+// TODO(BE #5): proteger todas estas rutas con autenticación y rol ADMIN
+// (contrato 2.3: Usuarios L/E solo para ADMIN).
 
 // ========================================================================= //
 //                                   EXEC                                    //
@@ -31,32 +33,58 @@ const V = {
 
 const router = Router();
 
-// Get all users
-router.get(P.GET, async (_, res) => {
-  const users = await UserService.getAll();
-  res.status(HttpStatusCodes.OK).json({ users });
-});
+// 6.2.1 Listar usuarios
+router.get(
+  P.Get.PATH,
+  validate({ query: UserListQuerySchema }),
+  async (req, res) => {
+    const query = res.locals.query as UserListQuery;
+    const page = await UserService.list(query);
+    sendPage(req, res, page, UserMessages.LISTED);
+  },
+);
 
-// Add one user
-router.post(P.ADD, V.add, async (req, res) => {
-  const { user } = req.body;
-  const created = await UserService.addOne(user);
-  res.status(HttpStatusCodes.CREATED).json({ user: created });
-});
+// 6.2.2 Crear usuario
+router.post(
+  P.Add.PATH,
+  validate({ body: CreateUserSchema }),
+  async (req, res) => {
+    const user = await UserService.create(req.body as CreateUserRequest);
+    sendCreated(res, user, UserMessages.CREATED);
+  },
+);
 
-// Update one user
-router.put(P.UPDATE, V.update, async (req, res) => {
-  const { user } = req.body;
-  await UserService.updateOne(user);
-  res.status(HttpStatusCodes.OK).end();
-});
+// 6.2.3 Obtener usuario
+router.get(
+  P.GetOne.PATH,
+  validate({ params: IdParamsSchema }),
+  async (_req, res) => {
+    const { id } = res.locals.params as IdParams;
+    sendSuccess(res, await UserService.getOne(id), UserMessages.FOUND);
+  },
+);
 
-// Delete one user
-router.delete(P.DELETE, V.delete, async (req, res) => {
-  const { id } = req.params;
-  await UserService.deleteOne(id);
-  res.status(HttpStatusCodes.OK).end();
-});
+// 6.2.4 Actualizar usuario (PATCH, actualización parcial)
+router.patch(
+  P.Update.PATH,
+  validate({ params: IdParamsSchema, body: UpdateUserSchema }),
+  async (req, res) => {
+    const { id } = res.locals.params as IdParams;
+    const user = await UserService.update(id, req.body as UpdateUserRequest);
+    sendSuccess(res, user, UserMessages.UPDATED);
+  },
+);
+
+// 6.2.5 Eliminar usuario (baja lógica)
+router.delete(
+  P.Delete.PATH,
+  validate({ params: IdParamsSchema }),
+  async (_req, res) => {
+    const { id } = res.locals.params as IdParams;
+    await UserService.remove(id);
+    sendSuccess(res, null, UserMessages.DELETED);
+  },
+);
 
 // ========================================================================= //
 //                                  EXPORT                                   //

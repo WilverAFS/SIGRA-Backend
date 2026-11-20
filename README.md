@@ -154,15 +154,17 @@ JWT_REFRESH_SECRET="reemplazar_con_un_refresh_secret_seguro"
 
 > **Importante:** nunca subas los archivos `.env` o `config/.env.*` con credenciales reales al repositorio.
 
-### 5.5 Sincronizar esquema y poblar datos iniciales (Seeder)
+### 5.5 Aplicar migraciones y poblar datos iniciales (Seeder)
 
-Aplica el esquema relacional en PostgreSQL y ejecuta el seeder automático para cargar los roles base, el Instituto Tecnológico de Oaxaca, la carrera de ISC, los periodos académicos y las materias iniciales:
+El esquema se versiona con migraciones de Prisma en `prisma/migrations/`. Aplica las migraciones en PostgreSQL y ejecuta el seeder para cargar los roles base, el Instituto Tecnológico de Oaxaca, la carrera de ISC, los periodos académicos y las materias iniciales:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 npx prisma db seed
 
 ```
+
+> Si cambias `prisma/schema.prisma`, genera una migración nueva con `npx prisma migrate dev --name <descripcion>` y súbela junto con tu cambio. No uses `prisma db push` en ramas compartidas.
 
 ### 5.6 Iniciar el servidor y verificar funcionamiento
 
@@ -171,14 +173,36 @@ npm run dev
 
 ```
 
-Para comprobar que la API responde correctamente, abre otra terminal o realiza una petición `GET` a **http://localhost:3000/api/v1/health**:
+Para comprobar que la API responde correctamente, realiza una petición `GET` a **http://localhost:3000/api/v1/health**:
 
 ```bash
 curl http://localhost:3000/api/v1/health
 
 ```
 
-Deberías recibir una respuesta JSON con `"status": "ok"`. Para detener el servidor, presiona **Ctrl + C** en la terminal.
+La respuesta comprueba en tiempo real PostgreSQL, Redis y RabbitMQ: `"status": "ok"` con 200 si todo responde, o `"status": "degraded"` con 503 si alguna dependencia está caída. Para detener el servidor, presiona **Ctrl + C** en la terminal.
+
+### 5.7 Documentación de la API (Swagger)
+
+Con el servidor encendido, abre **http://localhost:3000/api/v1/docs** (el JSON de OpenAPI está en `/api/v1/docs.json`). Cada actividad debe documentar sus endpoints en `src/docs/openapi.ts`.
+
+### 5.8 Pruebas automatizadas
+
+Las pruebas usan una base de datos **separada** (`sigra_test`, definida en `config/.env.test`), porque cada corrida la vacía por completo. Créala una sola vez:
+
+```sql
+CREATE DATABASE sigra_test OWNER sigra_db_admin;
+
+```
+
+Después ejecuta:
+
+```bash
+npm test
+
+```
+
+El harness (`tests/support/db.ts`) aplica las migraciones a `sigra_test`, limpia las tablas antes de cada prueba y carga roles, un instituto y una carrera. Usa `useTestDatabase()`, `resetDb()` e `insertUser()` en las pruebas de tu módulo.
 
 ## 6. Estructura general del backend
 
@@ -259,8 +283,8 @@ Describe los endpoints o cambios implementados, cómo los verificaste y solicita
 
 ## 8. Buenas prácticas
 
-* Respetar el prefijo global `/api/v1` y las estructuras de respuesta definidas en el **ContratoAPI-SIGRA**.
-* Validar todos los cuerpos de petición (`body`), parámetros (`params`) y consultas (`query`) utilizando esquemas de **Zod** antes de interactuar con la base de datos.
+* Respetar el prefijo global `/api/v1` y las estructuras de respuesta definidas en el **ContratoAPI-SIGRA**: responder con `sendSuccess`, `sendCreated` o `sendPage` (`src/common/utils/response.utils.ts`) y lanzar errores con `RouteError` y los códigos de `src/common/constants/ErrorCodes.ts` (catálogo 4.3).
+* Validar todos los cuerpos de petición (`body`), parámetros (`params`) y consultas (`query`) con el middleware `validate()` y las reglas compartidas de `src/common/validation/` (5.2 y `ListQueryRequest` 5.5.15). Los errores de campo responden 422 `VALIDATION_ERROR`.
 * No subir archivos `.env`, `node_modules/`, `dist/` ni credenciales al repositorio.
 * Conservar `package-lock.json` sincronizado para garantizar reproducibilidad en todo el equipo.
 * Actualizar `prisma/schema.prisma` y coordinar con el equipo antes de modificar tablas o restricciones compartidas.

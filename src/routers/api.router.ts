@@ -2,6 +2,8 @@ import { Router } from 'express';
 
 import HttpStatusCodes from '#src/common/constants/HttpStatusCodes.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
+import { sendSuccess } from '#src/common/utils/response.utils.ts';
+import HealthService from '#src/services/HealthService.ts';
 
 import userRouter from './user.router.ts';
 
@@ -11,26 +13,22 @@ import userRouter from './user.router.ts';
 
 const apiRouter = Router();
 
-// Endpoint de Salud / Healthcheck (Sección 1.6 y 6.9.3 del Contrato API)
-// Ruta resultante: GET /api/v1/health
-apiRouter.get('/health', (_req, res) => {
-  return res.status(HttpStatusCodes.OK).json({
-    success: true,
-    message: "Servicio operativo.",
-    data: {
-      status: "ok",
-      version: "1.2.0",
-      timestamp: new Date().toISOString(),
-      services: {
-        database: "up",
-        cache: "up",
-        queue: "up"
-      }
-    }
+// 6.9.3 Verificar salud (público). Si una dependencia crítica está caída
+// responde 503 con el mismo HealthResource en `data`, status `degraded` y
+// `success` en false.
+apiRouter.get(Paths.Health.PATH, async (_req, res) => {
+  const health = await HealthService.getHealth();
+  if (health.status === 'ok') {
+    return sendSuccess(res, health, 'Servicio operativo.');
+  }
+  return res.status(HttpStatusCodes.SERVICE_UNAVAILABLE).json({
+    success: false,
+    message: 'Servicio degradado: una o más dependencias no responden.',
+    data: health,
   });
 });
 
-// Módulo de Usuarios -> Ruta resultante: /api/v1/users/...
+// 6.2 Usuarios → /api/v1/users/...
 apiRouter.use(Paths.Users.PATH, userRouter);
 
 // ========================================================================= //

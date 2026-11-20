@@ -1,108 +1,79 @@
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from 'express';
-import helmet from 'helmet';
-import logger from 'jet-logger';
-import morgan from 'morgan';
-import path from 'path';
 import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 
-import { RouteError } from '#src/common/classes/route-errors.ts';
-import HttpStatusCodes from '#src/common/constants/HttpStatusCodes.ts';
+import { Env, NodeEnvs } from '#src/common/constants/env.constants.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
+import {
+  errorHandler,
+  notFoundHandler,
+} from '#src/common/middleware/error-handler.ts';
+import {
+  REQUEST_ID_HEADER,
+  requestId,
+} from '#src/common/middleware/request-id.ts';
+import openApiDocument from '#src/docs/openapi.ts';
 import BaseRouter from '#src/routers/api.router.ts';
-
-import { Env, NodeEnvs } from './common/constants/env.constants.ts';
 
 // ========================================================================= //
 //                                   EXEC                                    //
 // ========================================================================= //
 
 const app = express();
+const isProduction = Env.NODE_ENV === NodeEnvs.PRODUCTION;
 
 // =============================== Middleware ============================== //
-// Habilitar CORS para permitir peticiones desde el Frontend (Vue / Vite)
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
 
-// Basic middleware
+// X-Request-Id en toda petición y respuesta (contrato 2.4)
+app.use(requestId);
+
+// Cabeceras de seguridad (contrato 2.4): nosniff y DENY siempre; HSTS solo
+// en producción. La CSP se relaja en /docs para que cargue Swagger UI.
+app.use(
+  helmet({
+    frameguard: { action: 'deny' },
+    strictTransportSecurity: isProduction,
+    contentSecurityPolicy: false,
+  }),
+);
+
+// CORS: solo los orígenes del frontend configurados en CORS_ORIGIN
+app.use(
+  cors({
+    origin: Env.CORS_ORIGIN,
+    credentials: true,
+    exposedHeaders: [REQUEST_ID_HEADER],
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Basic middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Show routes called in console during development
+// Mostrar las rutas llamadas en consola durante el desarrollo
 if (Env.NODE_ENV === NodeEnvs.DEVELOPMENT) {
   app.use(morgan('dev'));
 }
 
-// Security
-if (Env.NODE_ENV === NodeEnvs.PRODUCTION) {
-  app.use(helmet());
-}
+// =========================== Documentación (Swagger) ===================== //
 
-// Add APIs, must be after middleware
+app.get(Paths.Docs.JSON, (_req, res) => {
+  res.json(openApiDocument);
+});
+app.use(
+  Paths.Docs.FULL_PATH,
+  swaggerUi.serve,
+  swaggerUi.setup(openApiDocument, { customSiteTitle: 'SIGRA API v1' }),
+);
+
+// ================================== API ================================== //
+
 app.use(Paths.PATH, BaseRouter);
 
-// Add error handler. `_next` must stay: Express only treats 4-arg middleware
-// as an error handler.
-app.use((err: Error, _: Request, res: Response, _next: NextFunction) => {
-  if (err instanceof RouteError) {
-    return res
-      .status(err.status)
-      .json({ error: err.message, errors: err.errors });
-  }
-  // Body-parser errors are client errors; don't expose the rejected body.
-  if ('type' in err) {
-    if (err.type === 'entity.parse.failed') {
-      return res
-        .status(HttpStatusCodes.BAD_REQUEST)
-        .json({ error: 'Invalid JSON' });
-    }
-    if (err.type === 'entity.too.large') {
-      return res
-        .status(HttpStatusCodes.PAYLOAD_TOO_LARGE)
-        .json({ error: 'Request body too large' });
-    }
-  }
-  if (Env.NODE_ENV !== NodeEnvs.TEST) {
-    logger.err(err, true);
-  }
-  return res
-    .status(HttpStatusCodes.INTERNAL_SERVER_ERROR)
-    .json({ error: 'Internal Server Error' });
-});
-
-// =========================== Front-end Content =========================== //
-
-// Views/HTML directory (html)
-const viewsDir = path.join(import.meta.dirname, 'views');
-const staticDir = path.join(import.meta.dirname, 'public');
-
-// Refresh the browser on changes. Imported lazily because livereload is a
-// dev dependency and isn't installed in production.
-if (Env.NODE_ENV === NodeEnvs.DEVELOPMENT) {
-  const { setupLiveReload } = await import('#src/common/utils/dev-only.ts');
-  setupLiveReload(app, [staticDir, viewsDir]);
-}
-
-app.use(express.static(staticDir));
-
-// Nav to users pg by default
-app.get('/', (_: Request, res: Response) => {
-  return res.redirect('/users');
-});
-
-// Users page
-app.get('/users', (_: Request, res: Response) => {
-  return res.sendFile('users.html', { root: viewsDir });
-});
+// Rutas inexistentes y manejador global de errores (contrato cap. 4)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // ========================================================================= //
 //                                  EXPORT                                   //

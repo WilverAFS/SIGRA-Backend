@@ -1,23 +1,47 @@
+import assert from 'node:assert/strict';
 import type { Response } from 'supertest';
+
+import type { ErrorCode } from '#src/common/constants/ErrorCodes.ts';
+import type { ErrorEnvelope } from '#src/common/middleware/error-handler.ts';
+import type {
+  PaginatedEnvelope,
+  SuccessEnvelope,
+} from '#src/common/utils/response.utils.ts';
 
 // ========================================================================= //
 //                                   TYPES                                   //
 // ========================================================================= //
 
 export type TypedRes<T> = Omit<Response, 'body'> & { body: T };
-export type TypedErrRes<T = 'string'> = TypedRes<{ error: T }>;
-
-interface ValidationError {
-  errors: { message: string }[];
-}
+export type OkRes<T> = TypedRes<SuccessEnvelope<T>>;
+export type PageRes<T> = TypedRes<PaginatedEnvelope<T>>;
+export type ErrRes = TypedRes<ErrorEnvelope>;
 
 // ========================================================================= //
 //                                  HELPERS                                  //
 // ========================================================================= //
 
 /**
- * Get the error message from a superTest Response object.
+ * Comprobar que la respuesta es un error con la estructura del capítulo 4.
  */
-export function extractErrMsg(res: TypedRes<ValidationError[]>) {
-  return res.body[0].errors[0].message;
+export function assertError(
+  res: Response,
+  status: number,
+  code: ErrorCode,
+): ErrorEnvelope {
+  const body = res.body as ErrorEnvelope;
+  assert.equal(res.status, status);
+  assert.equal(body.success, false);
+  assert.equal(body.data, null);
+  assert.equal(body.error.code, code);
+  assert.equal(typeof body.message, 'string');
+  assert.ok(res.headers['x-request-id'], 'falta la cabecera X-Request-Id');
+  return body;
+}
+
+/**
+ * Campos con error en `error.details`.
+ */
+export function detailFields(body: ErrorEnvelope): string[] {
+  return (body.error.details ?? []).map((detail) => detail.field);
 }

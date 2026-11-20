@@ -18,6 +18,5 @@
     "useUnknownInCatchVariables": false,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "eslint.config.ts"],
-  "exclude": ["src/public/*"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "prisma/**/*.ts", "eslint.config.ts"]
 }
