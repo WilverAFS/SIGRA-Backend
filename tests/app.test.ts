@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 
 import { ErrorCodes } from '#src/common/constants/ErrorCodes.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
+import { closeRedis } from '#src/common/infra/redis.ts';
 
 import { agent } from './support/agent.ts';
 import { assertError } from './support/utils.ts';
+
+after(async () => {
+  await closeRedis();
+});
 
 // ========================================================================= //
 //                                   TESTS                                   //
@@ -26,7 +31,7 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
   });
 
   it('responde 400 BAD_REQUEST si un POST que lo exige llega sin cuerpo', async () => {
-    const res = await agent.post(Paths.Users.Add.FULL_PATH);
+    const res = await agent.post(Paths.Auth.Login.FULL_PATH);
     assertError(res, 400, ErrorCodes.BAD_REQUEST);
   });
 

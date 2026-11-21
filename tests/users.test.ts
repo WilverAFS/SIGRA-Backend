@@ -8,7 +8,7 @@ import { verifyPassword } from '#src/common/utils/password.utils.ts';
 import type { UserResource } from '#src/entities/User/index.ts';
 import UserService, { UserMessages } from '#src/services/UserService.ts';
 
-import { agent } from './support/agent.ts';
+import { agent as rawAgent } from './support/agent.ts';
 import {
   type BaseData,
   insertUser,
@@ -21,6 +21,9 @@ import {
   type OkRes,
   type PageRes,
 } from './support/utils.ts';
+import redis, { ensureRedisConnected } from '#src/common/infra/redis.ts';
+import { signAccessToken } from '#src/common/utils/jwt.utils.ts';
+
 
 // ========================================================================= //
 //                                 CONSTANTS                                 //
@@ -50,8 +53,35 @@ const RESOURCE_KEYS = [
 
 useTestDatabase();
 
-describe('Usuarios (6.2)', () => {
+describe('Usuarios (6.2)', { concurrency: false }, () => {
   let base: BaseData;
+  let adminAuth: string;
+  let adminUserId: number;
+
+  const withAdminAuth = <
+    T extends { set: (field: string, value: string) => T },
+  >(
+    request: T,
+  ): T => request.set('Authorization', adminAuth);
+
+  const agent = {
+    get: (path: string) => withAdminAuth(rawAgent.get(path)),
+    post: (path: string) => withAdminAuth(rawAgent.post(path)),
+    patch: (path: string) => withAdminAuth(rawAgent.patch(path)),
+    put: (path: string) => withAdminAuth(rawAgent.put(path)),
+    delete: (path: string) => withAdminAuth(rawAgent.delete(path)),
+  };
+
+  const createAdminAuth = async () => {
+    const admin = await insertUser(base, {
+      role: 'ADMIN',
+      email: `admin-${Date.now()}-${Math.random()}@itoaxaca.edu.mx`,
+      institutionalId: `ADM-${Math.floor(Math.random() * 100000)}`,
+      isActive: true,
+    });
+    adminUserId = admin.id;
+    return `Bearer ${signAccessToken(admin.id, 'ADMIN')}`;
+  };
 
   const newUser = (overrides: Record<string, unknown> = {}) => ({
     institutionalId: '22161058',
@@ -67,6 +97,7 @@ describe('Usuarios (6.2)', () => {
 
   beforeEach(async () => {
     base = await resetDb();
+    adminAuth = await createAdminAuth();
   });
 
   // ------------------------------------------------------------------ //
@@ -102,6 +133,7 @@ describe('Usuarios (6.2)', () => {
     });
 
     it('responde 422 con el detalle de cada campo inválido', async () => {
+      const usersBefore = await prisma.user.count();
       const res = await agent.post(P.Add.FULL_PATH).send({
         firstName: 'Ana-María',
         lastName: 'López 2',
@@ -123,7 +155,7 @@ describe('Usuarios (6.2)', () => {
       ]) {
         assert.ok(fields.includes(field), `falta el detalle de ${field}`);
       }
-      assert.equal(await prisma.user.count(), 0);
+      assert.equal(await prisma.user.count(), usersBefore);
     });
 
     it('responde 422 si falta la carrera en un DOCENTE', async () => {
@@ -218,10 +250,10 @@ describe('Usuarios (6.2)', () => {
       assert.equal(res.status, 200);
       assert.deepEqual(
         res.body.data.map((u) => u.lastName),
-        ['Bautista', 'Cruz Alonso', 'Zárate'],
+        ['Bautista', 'Cruz Alonso', 'De Prueba', 'Zárate'],
       );
       assert.deepEqual(res.body.meta, {
-        total: 3,
+        total: 4,
         page: 1,
         limit: 20,
         totalPages: 1,
@@ -244,7 +276,7 @@ describe('Usuarios (6.2)', () => {
       const second: PageRes<UserResource> = await agent.get(
         first.body.links.next,
       );
-      assert.equal(second.body.data.length, 1);
+      assert.equal(second.body.data.length, 2);
       assert.equal(second.body.links.next, null);
       assert.notEqual(second.body.links.prev, null);
     });
@@ -472,25 +504,19 @@ describe('Usuarios (6.2)', () => {
     });
 
     it('no deja el sistema sin administradores activos (409)', async () => {
-      const admin = await insertUser(base, {
+      const otherAdmin = await insertUser(base, {
         role: 'ADMIN',
         institutionalId: 'A1',
         email: 'admin@ito.mx',
         withCareer: false,
       });
+      const res = await agent.delete(P.Delete.format(otherAdmin.id));
+      assert.equal(res.status, 200);
       assertError(
-        await agent.delete(P.Delete.format(admin.id)),
+        await agent.delete(P.Delete.format(adminUserId)),
         409,
         ErrorCodes.RESOURCE_HAS_DEPENDENCIES,
       );
-      await insertUser(base, {
-        role: 'ADMIN',
-        institutionalId: 'A2',
-        email: 'admin2@ito.mx',
-        withCareer: false,
-      });
-      const res = await agent.delete(P.Delete.format(admin.id));
-      assert.equal(res.status, 200);
     });
   });
 

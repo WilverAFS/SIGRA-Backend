@@ -6,6 +6,8 @@ import { sendSuccess } from '#src/common/utils/response.utils.ts';
 import HealthService from '#src/services/HealthService.ts';
 
 import userRouter from './user.router.ts';
+import roleRouter from './role.router.ts';
+import authRouter from './auth.router.ts';
 
 // ========================================================================= //
 //                                   EXEC                                    //
@@ -30,6 +32,11 @@ apiRouter.get(Paths.Health.PATH, async (_req, res) => {
 
 // 6.2 Usuarios → /api/v1/users/...
 apiRouter.use(Paths.Users.PATH, userRouter);
+
+// 6.2 Roles → /api/v1/roles/...
+apiRouter.use(Paths.Roles.PATH, roleRouter);
+// 6.1 Autenticación → /api/v1/auth/...
+apiRouter.use(Paths.Auth.PATH, authRouter);
 
 // ========================================================================= //
 //                                    EXPORT                                 //
