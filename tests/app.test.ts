@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 
 import { ErrorCodes } from '#src/common/constants/ErrorCodes.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
+import { closeRedis } from '#src/common/infra/redis.ts';
 
 import { agent } from './support/agent.ts';
 import { assertError } from './support/utils.ts';
+
+after(async () => {
+  await closeRedis();
+});
 
 // ========================================================================= //
 //                                   TESTS                                   //
@@ -26,7 +31,7 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
   });
 
   it('responde 400 BAD_REQUEST si un POST que lo exige llega sin cuerpo', async () => {
-    const res = await agent.post(Paths.Users.Add.FULL_PATH);
+    const res = await agent.post(Paths.Auth.Login.FULL_PATH);
     assertError(res, 400, ErrorCodes.BAD_REQUEST);
   });
 
@@ -71,12 +76,34 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
     const res = await agent.get(Paths.Docs.JSON);
     assert.equal(res.status, 200);
     const doc = res.body as {
-      paths: Record<string, unknown>;
+      paths: Record<
+        string,
+        {
+          get?: { security?: unknown[] };
+          post?: { security?: unknown[] };
+          patch?: { security?: unknown[] };
+        }
+      >;
       components: { securitySchemes: { bearerAuth: { scheme: string } } };
     };
     assert.equal(doc.components.securitySchemes.bearerAuth.scheme, 'bearer');
-    for (const path of ['/health', '/users', '/users/{id}']) {
+    for (const path of [
+      '/health',
+      '/users',
+      '/users/{id}',
+      '/auth/register',
+      '/auth/login',
+      '/auth/logout',
+      '/auth/refresh',
+      '/auth/me',
+      '/auth/me/password',
+      '/roles',
+      '/roles/{id}',
+    ]) {
       assert.ok(doc.paths[path], `falta ${path} en Swagger`);
+    }
+    for (const path of ['/auth/register', '/auth/login', '/auth/refresh']) {
+      assert.deepEqual(doc.paths[path]?.post?.security, []);
     }
   });
 

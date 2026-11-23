@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { after, before } from 'node:test';
 
 import prisma from '#src/common/infra/prisma.ts';
+import { closeRedis } from '#src/common/infra/redis.ts';
 import { hashPassword } from '#src/common/utils/password.utils.ts';
 
 // ========================================================================= //
@@ -41,6 +42,7 @@ export function useTestDatabase() {
     }
   });
   after(async () => {
+    await closeRedis();
     await prisma.$disconnect();
   });
 }

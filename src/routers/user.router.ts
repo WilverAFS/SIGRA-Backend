@@ -1,6 +1,8 @@
 import { Router } from 'express';
 
 import Paths from '#src/common/constants/Paths/index.ts';
+import { authenticate } from '#src/common/middleware/authenticate.ts';
+import { authorizeRoles } from '#src/common/middleware/authorize.ts';
 import { validate } from '#src/common/middleware/validate.ts';
 import {
   sendCreated,
@@ -24,7 +26,6 @@ import UserService, { UserMessages } from '#src/services/UserService.ts';
 
 const P = Paths.Users;
 
-// TODO(BE #5): proteger todas estas rutas con autenticación y rol ADMIN
 // (contrato 2.3: Usuarios L/E solo para ADMIN).
 
 // ========================================================================= //
@@ -32,6 +33,8 @@ const P = Paths.Users;
 // ========================================================================= //
 
 const router = Router();
+
+router.use(authenticate, authorizeRoles('ADMIN'));
 
 // 6.2.1 Listar usuarios
 router.get(
@@ -81,7 +84,8 @@ router.delete(
   validate({ params: IdParamsSchema }),
   async (_req, res) => {
     const { id } = res.locals.params as IdParams;
-    await UserService.remove(id);
+    const authenticatedUser = res.locals.user as { id: number };
+    await UserService.remove(id, authenticatedUser.id);
     sendSuccess(res, null, UserMessages.DELETED);
   },
 );

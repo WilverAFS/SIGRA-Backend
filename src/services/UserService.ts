@@ -6,6 +6,7 @@ import {
   ValidationError,
 } from '#src/common/classes/route-errors.ts';
 import { ErrorCodes } from '#src/common/constants/ErrorCodes.ts';
+import prisma from '#src/common/infra/prisma.ts';
 import { hashPassword } from '#src/common/utils/password.utils.ts';
 import type { Page } from '#src/common/utils/response.utils.ts';
 import {
@@ -15,6 +16,7 @@ import {
   type UpdateUserRequest,
   type UserListQuery,
   type UserResource,
+  type UserWithRole,
 } from '#src/entities/User/index.ts';
 import UserRepo from '#src/repos/UserRepo.ts';
 
@@ -188,11 +190,8 @@ async function update(
 /**
  * 6.2.5 Eliminar usuario (baja lógica). No se puede dejar el sistema sin
  * administradores activos.
- *
- * TODO(BE #5): impedir que el usuario autenticado elimine su propia cuenta
- * cuando exista el middleware de autenticación.
  */
-async function remove(id: number): Promise<void> {
+async function remove(id: number, actorId: number): Promise<void> {
   const user = await UserRepo.findById(id);
   if (!user) throw new NotFoundError(UserMessages.NOT_FOUND);
   if (
@@ -205,7 +204,22 @@ async function remove(id: number): Promise<void> {
       UserMessages.LAST_ADMIN,
     );
   }
+  if (id === actorId) {
+    throw new RouteError(
+      ErrorCodes.FORBIDDEN_OWNERSHIP,
+      'No puedes eliminar tu propia cuenta.',
+    );
+  }
   await UserRepo.softDelete(id);
+}
+
+/*funcion para buscar un usuario por correo electronico y devolver los datos del usuario y su rol*/
+async function findUserByEmail(email: string): Promise<UserWithRole | null> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { role: true },
+  });
+  return user;
 }
 
 // ========================================================================= //
@@ -218,4 +232,5 @@ export default {
   getOne,
   update,
   remove,
+  findUserByEmail,
 } as const;

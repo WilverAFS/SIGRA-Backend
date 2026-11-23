@@ -12,6 +12,10 @@ const USERS = BASE + USERS_BASE;
 const AUTH_BASE = '/auth';
 const AUTH = BASE + AUTH_BASE;
 
+const ROLES_BASE = '/roles';
+const ROLES = BASE + ROLES_BASE;
+const roleById = (id: string | number) => `${ROLES}/${pp(id)}`;
+
 const userById = (id: string | number) => `${USERS}/${pp(id)}`;
 
 const Paths = {
@@ -44,6 +48,13 @@ const Paths = {
     GetOne: { ...ep(USERS, '/:id', 'GET'), format: userById }, // 6.2.3
     Update: { ...ep(USERS, '/:id', 'PATCH'), format: userById }, // 6.2.4
     Delete: { ...ep(USERS, '/:id', 'DELETE'), format: userById }, // 6.2.5
+  },
+
+  // Módulo 2: Roles (6.2.6–6.2.7)
+  Roles: {
+    PATH: ROLES_BASE,
+    Get: ep(ROLES, '', 'GET'), // 6.2.6 Listar
+    GetOne: { ...ep(ROLES, '/:id', 'GET'), format: roleById }, // 6.2.7 Obtener
   },
 } as const;
 

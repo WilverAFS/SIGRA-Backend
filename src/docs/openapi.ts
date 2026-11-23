@@ -23,11 +23,16 @@ const errorResponse = (description: string) => ({
 
 const Errors = {
   400: errorResponse('400 BAD_REQUEST: JSON inválido o cuerpo ausente.'),
+  401: errorResponse(
+    '401 AUTH_INVALID_CREDENTIALS / AUTH_TOKEN_EXPIRED / AUTH_TOKEN_REVOKED.',
+  ),
+  403: errorResponse('403 AUTH_USER_INACTIVE / FORBIDDEN_ROLE.'),
   404: errorResponse('404 RESOURCE_NOT_FOUND.'),
   409: errorResponse(
     '409 CONFLICT_UNIQUE: correo o institutionalId duplicado.',
   ),
   422: errorResponse('422 VALIDATION_ERROR con error.details por campo.'),
+  429: errorResponse('429 RATE_LIMIT_EXCEEDED: demasiados intentos.'),
   500: errorResponse('500 INTERNAL_ERROR.'),
 } as const;
 
@@ -58,11 +63,165 @@ const openApiDocument = {
   servers: [{ url: '/api/v1' }],
   tags: [
     { name: 'Salud', description: '6.9.3' },
+    { name: 'Autenticación', description: '6.1' },
     { name: 'Usuarios', description: '6.2 (solo ADMIN)' },
+    { name: 'Roles', description: '6.2.6–6.2.7' },
   ],
   // Seguridad Bearer por defecto (contrato 2.1); las rutas públicas la anulan.
   security: [{ bearerAuth: [] }],
   paths: {
+    '/auth/register': {
+      post: {
+        tags: ['Autenticación'],
+        summary: 'Registrar usuario (6.1.1)',
+        security: [],
+        requestBody: {
+          required: true,
+          ...json(ref('RegisterRequest')),
+        },
+        responses: {
+          201: {
+            description: 'Sesión de estudiante o UserResource de docente.',
+            ...json(
+              envelope({
+                oneOf: [ref('AuthSessionResource'), ref('UserResource')],
+              }),
+            ),
+          },
+          400: Errors[400],
+          409: Errors[409],
+          422: Errors[422],
+          429: Errors[429],
+        },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Autenticación'],
+        summary: 'Iniciar sesión (6.1.2)',
+        security: [],
+        requestBody: {
+          required: true,
+          ...json(ref('LoginRequest')),
+        },
+        responses: {
+          200: {
+            description: 'Sesión autenticada.',
+            ...json(envelope(ref('AuthSessionResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          422: Errors[422],
+          429: Errors[429],
+        },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['Autenticación'],
+        summary: 'Cerrar sesión (6.1.3)',
+        requestBody: {
+          required: false,
+          ...json({
+            type: 'object',
+            properties: { refreshToken: { type: 'string' } },
+          }),
+        },
+        responses: {
+          200: {
+            description: 'Sesión cerrada.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          401: Errors[401],
+        },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['Autenticación'],
+        summary: 'Renovar sesión (6.1.4)',
+        security: [],
+        requestBody: {
+          required: true,
+          ...json(ref('RefreshTokenRequest')),
+        },
+        responses: {
+          200: {
+            description: 'Sesión renovada; omite el usuario.',
+            ...json(envelope(ref('AuthSessionResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          422: Errors[422],
+          429: Errors[429],
+        },
+      },
+    },
+    '/auth/me': {
+      get: {
+        tags: ['Autenticación'],
+        summary: 'Obtener perfil propio (6.1.5)',
+        responses: {
+          200: {
+            description: 'UserResource del usuario autenticado.',
+            ...json(envelope(ref('UserResource'))),
+          },
+          401: Errors[401],
+        },
+      },
+    },
+    '/auth/me/password': {
+      patch: {
+        tags: ['Autenticación'],
+        summary: 'Cambiar contraseña propia (6.1.6)',
+        requestBody: {
+          required: true,
+          ...json(ref('ChangePasswordRequest')),
+        },
+        responses: {
+          200: {
+            description: 'Contraseña actualizada.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          422: Errors[422],
+        },
+      },
+    },
+    '/roles': {
+      get: {
+        tags: ['Roles'],
+        summary: 'Listar roles (6.2.6)',
+        responses: {
+          200: {
+            description: 'Colección de roles.',
+            ...json(envelope({ type: 'array', items: ref('RoleResource') })),
+          },
+          401: Errors[401],
+          403: Errors[403],
+        },
+      },
+    },
+    '/roles/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Roles'],
+        summary: 'Obtener rol (6.2.7)',
+        responses: {
+          200: {
+            description: 'RoleResource.',
+            ...json(envelope(ref('RoleResource'))),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          422: Errors[422],
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['Salud'],
@@ -282,6 +441,96 @@ const openApiDocument = {
               },
             },
           },
+        },
+      },
+      LoginRequest: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: {
+            type: 'string',
+            format: 'email',
+            maxLength: 150,
+            example: 'usuario@itoaxaca.edu.mx',
+          },
+          password: { type: 'string', maxLength: 128 },
+        },
+      },
+      RegisterRequest: {
+        type: 'object',
+        required: [
+          'institutionalId',
+          'firstName',
+          'lastName',
+          'email',
+          'password',
+          'role',
+          'instituteId',
+          'careerId',
+        ],
+        properties: {
+          institutionalId: { type: 'string', maxLength: 30 },
+          firstName: {
+            type: 'string',
+            maxLength: 100,
+            description: 'Solo letras y espacios simples.',
+          },
+          lastName: {
+            type: 'string',
+            maxLength: 120,
+            description: 'Solo letras y espacios simples.',
+          },
+          email: { type: 'string', format: 'email', maxLength: 150 },
+          password: {
+            type: 'string',
+            minLength: 8,
+            description:
+              'Mínimo 8, con mayúscula, minúscula, número y símbolo.',
+          },
+          role: { type: 'string', enum: ['ESTUDIANTE', 'DOCENTE'] },
+          instituteId: { type: 'integer', minimum: 1 },
+          careerId: { type: 'integer', minimum: 1 },
+        },
+      },
+      RefreshTokenRequest: {
+        type: 'object',
+        required: ['refreshToken'],
+        properties: {
+          refreshToken: { type: 'string', maxLength: 500 },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string', maxLength: 128 },
+          newPassword: {
+            type: 'string',
+            minLength: 8,
+            description:
+              'Mínimo 8, con mayúscula, minúscula, número y símbolo; debe diferir de la contraseña actual.',
+          },
+        },
+      },
+      AuthSessionResource: {
+        type: 'object',
+        required: ['accessToken', 'refreshToken', 'tokenType', 'expiresIn'],
+        properties: {
+          accessToken: { type: 'string' },
+          refreshToken: { type: 'string' },
+          tokenType: { type: 'string', enum: ['Bearer'] },
+          expiresIn: { type: 'integer', example: 3600 },
+          user: ref('UserResource'),
+        },
+      },
+      RoleResource: {
+        type: 'object',
+        required: ['id', 'name', 'description', 'createdAt'],
+        properties: {
+          id: { type: 'integer', example: 1 },
+          name: ref('RoleName'),
+          description: { type: 'string', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
         },
       },
       RoleName: { type: 'string', enum: ['ADMIN', 'DOCENTE', 'ESTUDIANTE'] },
