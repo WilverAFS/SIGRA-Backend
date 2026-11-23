@@ -25,6 +25,8 @@ export const Env = {
   DATABASE_URL: process.env.DATABASE_URL ?? '',
   REDIS_URL: process.env.REDIS_URL ?? '',
   RABBITMQ_URL: process.env.RABBITMQ_URL ?? '',
+  JWT_SECRET: process.env.JWT_SECRET ?? '',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? '',
 } as const;
 
 // ========================================================================= //
@@ -46,6 +48,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   RABBITMQ_URL: z.string().min(1, 'RABBITMQ_URL is required'),
+  JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
 });
 
 // ===================== Validate Environment Variables ==================== //

@@ -5,9 +5,9 @@ import Paths from '#src/common/constants/Paths/index.ts';
 import { sendSuccess } from '#src/common/utils/response.utils.ts';
 import HealthService from '#src/services/HealthService.ts';
 
-import userRouter from './user.router.ts';
-import roleRouter from './role.router.ts';
 import authRouter from './auth.router.ts';
+import roleRouter from './role.router.ts';
+import userRouter from './user.router.ts';
 
 // ========================================================================= //
 //                                   EXEC                                    //

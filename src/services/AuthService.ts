@@ -1,3 +1,6 @@
+import { Prisma } from '@prisma/client';
+import jwt from 'jsonwebtoken';
+
 import {
   ConflictUniqueError,
   type ErrorDetail,
@@ -33,7 +36,7 @@ import {
   type UserWithRole,
 } from '#src/entities/User/index.ts';
 import UserRepo from '#src/repos/UserRepo.ts';
-import jwt  from 'jsonwebtoken';
+import UserService from '#src/services/UserService.ts';
 
 export const AuthMessages = {
   REGISTERED_ACTIVE: 'Registro completado correctamente.',
@@ -74,38 +77,8 @@ async function buildSession(
   };
 }
 
-function findUserByEmail(value: unknown, email: string): UserWithRole | undefined {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const user = findUserByEmail(item, email);
-      if (user) return user;
-    }
-    return undefined;
-  }
-
-  if (typeof value !== 'object' || value === null) return undefined;
-  if (
-    'email' in value &&
-    value.email === email &&
-    'passwordHash' in value &&
-    'isActive' in value &&
-    'role' in value &&
-    'id' in value
-  ) {
-    return value as UserWithRole;
-  }
-
-  for (const item of Object.values(value)) {
-    const user = findUserByEmail(item, email);
-    if (user) return user;
-  }
-  return undefined;
-}
-
 /** 6.1.1 Registro */
-async function register(
-  input: RegisterRequest,
-): Promise<{
+async function register(input: RegisterRequest): Promise<{
   session?: AuthSessionResource;
   user?: UserResource;
   isActive: boolean;
@@ -145,17 +118,35 @@ async function register(
   // ESTUDIANTE nace activo; DOCENTE nace inactivo sin tokens
   const isActive = input.role === 'ESTUDIANTE';
 
-  const created = await UserRepo.create({
-    roleId: roleId!,
-    instituteId: input.instituteId,
-    careerId: input.careerId,
-    institutionalId: input.institutionalId,
-    firstName: input.firstName,
-    lastName: input.lastName,
-    email: input.email,
-    passwordHash: await hashPassword(input.password),
-    isActive,
-  });
+  let created: UserWithRole;
+  try {
+    created = await UserRepo.create({
+      roleId: roleId!,
+      instituteId: input.instituteId,
+      careerId: input.careerId,
+      institutionalId: input.institutionalId,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      passwordHash: await hashPassword(input.password),
+      isActive,
+    });
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      const target = Array.isArray(err.meta?.target) ? err.meta.target : [];
+      if (target.includes('email')) {
+        throw new ConflictUniqueError('email', AuthMessages.EMAIL_TAKEN);
+      }
+      throw new ConflictUniqueError(
+        'institutionalId',
+        AuthMessages.INSTITUTIONAL_ID_TAKEN,
+      );
+    }
+    throw err;
+  }
 
   if (!isActive) {
     return { user: toUserResource(created), isActive: false };
@@ -172,14 +163,12 @@ async function register(
 
 /** 6.1.2 Inicio de sesión */
 async function login(input: LoginRequest): Promise<AuthSessionResource> {
-  const result: unknown = await UserRepo.findMany({
-    page: 1,
-    limit: 1000,
-    search: input.email,
-    sort: { field: 'lastName', direction: 'asc' },
-  });
-  const user = findUserByEmail(result, input.email);
-  if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+  const user = await UserService.findUserByEmail(input.email);
+  if (
+    !user ||
+    user.deletedAt !== null ||
+    !(await verifyPassword(input.password, user.passwordHash))
+  ) {
     throw new RouteError(
       ErrorCodes.AUTH_INVALID_CREDENTIALS,
       AuthMessages.INVALID_CREDENTIALS,

@@ -76,12 +76,34 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
     const res = await agent.get(Paths.Docs.JSON);
     assert.equal(res.status, 200);
     const doc = res.body as {
-      paths: Record<string, unknown>;
+      paths: Record<
+        string,
+        {
+          get?: { security?: unknown[] };
+          post?: { security?: unknown[] };
+          patch?: { security?: unknown[] };
+        }
+      >;
       components: { securitySchemes: { bearerAuth: { scheme: string } } };
     };
     assert.equal(doc.components.securitySchemes.bearerAuth.scheme, 'bearer');
-    for (const path of ['/health', '/users', '/users/{id}']) {
+    for (const path of [
+      '/health',
+      '/users',
+      '/users/{id}',
+      '/auth/register',
+      '/auth/login',
+      '/auth/logout',
+      '/auth/refresh',
+      '/auth/me',
+      '/auth/me/password',
+      '/roles',
+      '/roles/{id}',
+    ]) {
       assert.ok(doc.paths[path], `falta ${path} en Swagger`);
+    }
+    for (const path of ['/auth/register', '/auth/login', '/auth/refresh']) {
+      assert.deepEqual(doc.paths[path]?.post?.security, []);
     }
   });
 

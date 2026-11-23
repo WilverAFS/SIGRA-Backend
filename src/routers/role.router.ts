@@ -4,9 +4,9 @@ import Paths from '#src/common/constants/Paths/index.ts';
 import { authenticate } from '#src/common/middleware/authenticate.ts';
 import { authorizeRoles } from '#src/common/middleware/authorize.ts';
 import { validate } from '#src/common/middleware/validate.ts';
+import { sendSuccess } from '#src/common/utils/response.utils.ts';
 import { type IdParams, IdParamsSchema } from '#src/entities/Role/index.ts';
 import RoleService, { RoleMessages } from '#src/services/RoleService.ts';
-import { sendSuccess } from '#src/common/utils/response.utils.ts';
 
 const P = Paths.Roles;
 const router = Router();

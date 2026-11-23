@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from 'node:test';
 import { ErrorCodes } from '#src/common/constants/ErrorCodes.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
 import prisma from '#src/common/infra/prisma.ts';
+import { signAccessToken } from '#src/common/utils/jwt.utils.ts';
 import { verifyPassword } from '#src/common/utils/password.utils.ts';
 import type { UserResource } from '#src/entities/User/index.ts';
 import UserService, { UserMessages } from '#src/services/UserService.ts';
@@ -21,9 +22,6 @@ import {
   type OkRes,
   type PageRes,
 } from './support/utils.ts';
-import redis, { ensureRedisConnected } from '#src/common/infra/redis.ts';
-import { signAccessToken } from '#src/common/utils/jwt.utils.ts';
-
 
 // ========================================================================= //
 //                                 CONSTANTS                                 //

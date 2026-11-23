@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
+import { Env } from '#src/common/constants/env.constants.ts';
 import redis, { ensureRedisConnected } from '#src/common/infra/redis.ts';
 import type { RoleName } from '#src/entities/User/index.ts';
 
@@ -8,13 +9,6 @@ export const ACCESS_TOKEN_EXPIRES_IN = 3600; // 60 minutos en segundos
 const ACCESS_TOKEN_TTL = '60m';
 const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
-
-const getAccessSecret = (): string =>
-  // eslint-disable-next-line no-process-env
-  process.env.JWT_SECRET ?? 'sigra_jwt_secret_dev_key_2026';
-const getRefreshSecret = (): string =>
-  // eslint-disable-next-line no-process-env
-  process.env.JWT_REFRESH_SECRET ?? 'sigra_jwt_refresh_dev_key_2026';
 
 export interface AccessTokenPayload {
   sub: number;
@@ -30,16 +24,18 @@ export interface RefreshTokenPayload {
 
 export function signAccessToken(userId: number, role: RoleName): string {
   const payload: AccessTokenPayload = { sub: userId, role, jti: uuidv4() };
-  return jwt.sign(payload, getAccessSecret(), {
+  return jwt.sign(payload, Env.JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_TTL,
   });
 }
 
-export async function signAndStoreRefreshToken(userId: number): Promise<string> {
+export async function signAndStoreRefreshToken(
+  userId: number,
+): Promise<string> {
   await ensureRedisConnected();
   const jti = uuidv4();
   const payload: RefreshTokenPayload = { sub: userId, jti };
-  const token = jwt.sign(payload, getRefreshSecret(), {
+  const token = jwt.sign(payload, Env.JWT_REFRESH_SECRET, {
     expiresIn: REFRESH_TOKEN_TTL,
   });
   await redis.set(`refresh:${jti}`, String(userId), {
@@ -49,11 +45,14 @@ export async function signAndStoreRefreshToken(userId: number): Promise<string> 
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-  return jwt.verify(token, getAccessSecret()) as unknown as AccessTokenPayload;
+  return jwt.verify(token, Env.JWT_SECRET) as unknown as AccessTokenPayload;
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
-  return jwt.verify(token, getRefreshSecret()) as unknown as RefreshTokenPayload;
+  return jwt.verify(
+    token,
+    Env.JWT_REFRESH_SECRET,
+  ) as unknown as RefreshTokenPayload;
 }
 
 export async function isRefreshTokenValid(

@@ -213,7 +213,6 @@ async function remove(id: number, actorId: number): Promise<void> {
   await UserRepo.softDelete(id);
 }
 
-
 /*funcion para buscar un usuario por correo electronico y devolver los datos del usuario y su rol*/
 async function findUserByEmail(email: string): Promise<UserWithRole | null> {
   const user = await prisma.user.findUnique({

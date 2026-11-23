@@ -1,6 +1,8 @@
 import { Router } from 'express';
 
 import Paths from '#src/common/constants/Paths/index.ts';
+import { authenticate } from '#src/common/middleware/authenticate.ts';
+import { authorizeRoles } from '#src/common/middleware/authorize.ts';
 import { validate } from '#src/common/middleware/validate.ts';
 import {
   sendCreated,
@@ -17,16 +19,12 @@ import {
   UserListQuerySchema,
 } from '#src/entities/User/index.ts';
 import UserService, { UserMessages } from '#src/services/UserService.ts';
-import { authenticate } from '#src/common/middleware/authenticate.ts';
-import { authorizeRoles } from '#src/common/middleware/authorize.ts';
 
 // ========================================================================= //
 //                                 CONSTANTS                                 //
 // ========================================================================= //
 
 const P = Paths.Users;
-
-// TODO(BE #5): proteger todas estas rutas con autenticación y rol ADMIN
 
 // (contrato 2.3: Usuarios L/E solo para ADMIN).
 
@@ -37,7 +35,6 @@ const P = Paths.Users;
 const router = Router();
 
 router.use(authenticate, authorizeRoles('ADMIN'));
-
 
 // 6.2.1 Listar usuarios
 router.get(

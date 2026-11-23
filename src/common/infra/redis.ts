@@ -1,5 +1,6 @@
 import logger from 'jet-logger';
 import { createClient } from 'redis';
+
 import { Env } from '#src/common/constants/env.constants.ts';
 
 const redisUrl = Env.REDIS_URL ?? 'redis://localhost:6379';

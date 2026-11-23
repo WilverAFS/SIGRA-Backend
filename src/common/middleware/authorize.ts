@@ -9,10 +9,7 @@ export function authorizeRoles(...allowedRoles: RoleName[]) {
     const user = res.locals.user as UserWithRole | undefined;
     if (!user) {
       return next(
-        new RouteError(
-          ErrorCodes.AUTH_INVALID_CREDENTIALS,
-          'No autenticado.',
-        ),
+        new RouteError(ErrorCodes.AUTH_INVALID_CREDENTIALS, 'No autenticado.'),
       );
     }
     if (!allowedRoles.includes(user.role.name as RoleName)) {
