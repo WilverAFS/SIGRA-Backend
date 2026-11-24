@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import Paths from '#src/common/constants/Paths/index.ts';
+import type { AuditOverride } from '#src/common/middleware/audit-trail.ts';
 import { authenticate } from '#src/common/middleware/authenticate.ts';
 import {
   authRateLimit,
@@ -9,6 +10,7 @@ import {
 import { validate } from '#src/common/middleware/validate.ts';
 import type { AccessTokenPayload } from '#src/common/utils/jwt.utils.ts';
 import { sendCreated, sendSuccess } from '#src/common/utils/response.utils.ts';
+import { AuditActions } from '#src/entities/AuditLog/index.ts';
 import {
   type ChangePasswordRequest,
   ChangePasswordSchema,
@@ -32,6 +34,19 @@ router.post(
   validate({ body: RegisterSchema }),
   async (req, res) => {
     const result = await AuthService.register(req.body as RegisterRequest);
+    const registered = result.session?.user ?? result.user;
+    if (registered) {
+      // /auth no se audita por defecto; el autorregistro sí, con el propio
+      // usuario nuevo como actor
+      const audit: AuditOverride = {
+        action: AuditActions.USER_REGISTERED,
+        entityName: 'users',
+        entityId: registered.id,
+        userId: registered.id,
+        metadata: { role: registered.role, isActive: registered.isActive },
+      };
+      res.locals.audit = audit;
+    }
     if (result.isActive) {
       return sendCreated(res, result.session, AuthMessages.REGISTERED_ACTIVE);
     }

@@ -18,6 +18,13 @@ const roleById = (id: string | number) => `${ROLES}/${pp(id)}`;
 
 const userById = (id: string | number) => `${USERS}/${pp(id)}`;
 
+const AUDIT_BASE = '/audit-logs';
+const AUDIT = BASE + AUDIT_BASE;
+const auditLogById = (id: string | number) => `${AUDIT}/${pp(id)}`;
+
+const DASHBOARD_BASE = '/dashboard';
+const DASHBOARD = BASE + DASHBOARD_BASE;
+
 const Paths = {
   PATH: BASE,
 
@@ -55,6 +62,19 @@ const Paths = {
     PATH: ROLES_BASE,
     Get: ep(ROLES, '', 'GET'), // 6.2.6 Listar
     GetOne: { ...ep(ROLES, '/:id', 'GET'), format: roleById }, // 6.2.7 Obtener
+  },
+
+  // Módulo 9: Auditoría (6.9.1–6.9.2)
+  AuditLogs: {
+    PATH: AUDIT_BASE,
+    Get: ep(AUDIT, '', 'GET'), // 6.9.1 Listar
+    GetOne: { ...ep(AUDIT, '/:id', 'GET'), format: auditLogById }, // 6.9.2
+  },
+
+  // Módulo 10: Dashboard (6.10)
+  Dashboard: {
+    PATH: DASHBOARD_BASE,
+    Summary: ep(DASHBOARD, '/summary', 'GET'), // 6.10.1
   },
 } as const;
 
