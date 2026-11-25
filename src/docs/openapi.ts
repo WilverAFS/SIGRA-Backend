@@ -66,6 +66,9 @@ const openApiDocument = {
     { name: 'Autenticación', description: '6.1' },
     { name: 'Usuarios', description: '6.2 (solo ADMIN)' },
     { name: 'Roles', description: '6.2.6–6.2.7' },
+    { name: 'Institutos', description: '6.3' },
+    { name: 'Carreras', description: '6.4' },
+
     { name: 'Auditoría', description: '6.9.1–6.9.2 (solo ADMIN)' },
     { name: 'Dashboard', description: '6.10 (cualquier rol)' },
   ],
@@ -345,6 +348,229 @@ const openApiDocument = {
           ),
         },
       },
+    },
+     '/institutes': {
+    get: {
+        tags: ['Institutos'],
+        summary: 'Listar institutos (6.3.1)',
+        parameters: [
+        { $ref: '#/components/parameters/page' },
+        { $ref: '#/components/parameters/limit' },
+        { $ref: '#/components/parameters/search' },
+        {
+            name: 'sort',
+            in: 'query',
+            schema: {
+            type: 'string',
+            enum: [
+                'name:asc',
+                'name:desc',
+                'code:asc',
+                'code:desc',
+                'createdAt:asc',
+                'createdAt:desc',
+            ],
+            default: 'name:asc',
+            },
+        },
+        { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+        200: {
+            description: 'Colección paginada de InstituteResource.',
+            ...json({
+            allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                type: 'object',
+                properties: {
+                    data: { type: 'array', items: ref('InstituteResource') },
+                },
+                },
+            ],
+            }),
+        },
+        401: Errors[401],
+        422: Errors[422],
+        },
+    },
+    post: {
+        tags: ['Institutos'],
+        summary: 'Crear instituto (6.3.2)',
+        requestBody: { required: true, ...json(ref('CreateInstituteRequest')) },
+        responses: {
+        201: {
+            description: 'InstituteResource creado.',
+            ...json(envelope(ref('InstituteResource'))),
+        },
+        400: Errors[400],
+        401: Errors[401],
+        403: Errors[403],
+        409: Errors[409],
+        422: Errors[422],
+        },
+    },
+    },
+    '/institutes/{id}': {
+    parameters: [idParam],
+    get: {
+        tags: ['Institutos'],
+        summary: 'Obtener instituto (6.3.3)',
+        responses: {
+        200: {
+            description: 'InstituteResource.',
+            ...json(envelope(ref('InstituteResource'))),
+        },
+        401: Errors[401],
+        404: Errors[404],
+        422: Errors[422],
+        },
+    },
+    patch: {
+        tags: ['Institutos'],
+        summary: 'Actualizar instituto (6.3.4)',
+        requestBody: { required: true, ...json(ref('UpdateInstituteRequest')) },
+        responses: {
+        200: {
+            description: 'InstituteResource actualizado.',
+            ...json(envelope(ref('InstituteResource'))),
+        },
+        400: Errors[400],
+        401: Errors[401],
+        403: Errors[403],
+        404: Errors[404],
+        409: Errors[409],
+        422: Errors[422],
+        },
+    },
+    delete: {
+        tags: ['Institutos'],
+        summary: 'Eliminar instituto (6.3.5)',
+        responses: {
+        200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+        },
+        401: Errors[401],
+        403: Errors[403],
+        404: Errors[404],
+        409: errorResponse(
+            '409 RESOURCE_HAS_DEPENDENCIES: el instituto tiene carreras o usuarios asociados.',
+        ),
+        },
+    },
+    },
+    '/careers': {
+    get: {
+        tags: ['Carreras'],
+        summary: 'Listar carreras (6.4.1)',
+        parameters: [
+        { $ref: '#/components/parameters/page' },
+        { $ref: '#/components/parameters/limit' },
+        { $ref: '#/components/parameters/search' },
+        {
+            name: 'sort',
+            in: 'query',
+            schema: {
+            type: 'string',
+            enum: [
+                'name:asc',
+                'name:desc',
+                'curriculumCode:asc',
+                'curriculumCode:desc',
+                'createdAt:asc',
+                'createdAt:desc',
+            ],
+            default: 'name:asc',
+            },
+        },
+        { name: 'instituteId', in: 'query', schema: { type: 'integer' } },
+        { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+        200: {
+            description: 'Colección paginada de CareerResource.',
+            ...json({
+            allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                type: 'object',
+                properties: {
+                    data: { type: 'array', items: ref('CareerResource') },
+                },
+                },
+            ],
+            }),
+        },
+        401: Errors[401],
+        422: Errors[422],
+        },
+    },
+    post: {
+        tags: ['Carreras'],
+        summary: 'Crear carrera (6.4.2)',
+        requestBody: { required: true, ...json(ref('CreateCareerRequest')) },
+        responses: {
+        201: {
+            description: 'CareerResource creado.',
+            ...json(envelope(ref('CareerResource'))),
+        },
+        400: Errors[400],
+        401: Errors[401],
+        403: Errors[403],
+        409: Errors[409],
+        422: Errors[422],
+        },
+    },
+    },
+    '/careers/{id}': {
+    parameters: [idParam],
+    get: {
+        tags: ['Carreras'],
+        summary: 'Obtener carrera (6.4.3)',
+        responses: {
+        200: {
+            description: 'CareerResource.',
+            ...json(envelope(ref('CareerResource'))),
+        },
+        401: Errors[401],
+        404: Errors[404],
+        422: Errors[422],
+        },
+    },
+    patch: {
+        tags: ['Carreras'],
+        summary: 'Actualizar carrera (6.4.4)',
+        requestBody: { required: true, ...json(ref('UpdateCareerRequest')) },
+        responses: {
+        200: {
+            description: 'CareerResource actualizado.',
+            ...json(envelope(ref('CareerResource'))),
+        },
+        400: Errors[400],
+        401: Errors[401],
+        403: Errors[403],
+        404: Errors[404],
+        409: Errors[409],
+        422: Errors[422],
+        },
+    },
+    delete: {
+        tags: ['Carreras'],
+        summary: 'Eliminar carrera (6.4.5)',
+        responses: {
+        200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+        },
+        401: Errors[401],
+        403: Errors[403],
+        404: Errors[404],
+        409: errorResponse(
+            '409 RESOURCE_HAS_DEPENDENCIES: la carrera tiene materias o usuarios asociados.',
+        ),
+        },
+    },
     },
     '/audit-logs': {
       get: {
@@ -704,6 +930,149 @@ const openApiDocument = {
           email: { type: 'string', format: 'email' },
           role: ref('RoleName'),
           careerId: { type: 'integer', nullable: true },
+          isActive: { type: 'boolean' },
+        },
+      },
+      InstituteResource: {
+        type: 'object',
+        required: [
+          'id',
+          'code',
+          'name',
+          'shortName',
+          'city',
+          'state',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: { type: 'integer', minimum: 1, example: 1 },
+          code: { type: 'string', maxLength: 30, example: 'ITO' },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Instituto Tecnológico de Oaxaca',
+          },
+          shortName: { type: 'string', maxLength: 30, example: 'ITO' },
+          city: { type: 'string', maxLength: 100, example: 'Oaxaca' },
+          state: { type: 'string', maxLength: 100, example: 'Oaxaca' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateInstituteRequest: {
+        type: 'object',
+        required: ['code', 'name', 'shortName', 'city', 'state'],
+        properties: {
+          code: { type: 'string', maxLength: 30, example: 'ITO' },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Instituto Tecnológico de Oaxaca',
+          },
+          shortName: { type: 'string', maxLength: 30, example: 'ITO' },
+          city: { type: 'string', maxLength: 100, example: 'Oaxaca' },
+          state: { type: 'string', maxLength: 100, example: 'Oaxaca' },
+          isActive: { type: 'boolean', default: true, example: true },
+        },
+      },
+      UpdateInstituteRequest: {
+        type: 'object',
+        description:
+          'Todos los campos son opcionales; se envía al menos uno para actualizar.',
+        properties: {
+          code: { type: 'string', maxLength: 30 },
+          name: { type: 'string', maxLength: 180 },
+          shortName: { type: 'string', maxLength: 30 },
+          city: { type: 'string', maxLength: 100 },
+          state: { type: 'string', maxLength: 100 },
+          isActive: { type: 'boolean' },
+        },
+      },
+      CareerResource: {
+        type: 'object',
+        required: [
+          'id',
+          'instituteId',
+          'curriculumCode',
+          'name',
+          'shortName',
+          'totalSemesters',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: { type: 'integer', minimum: 1, example: 1 },
+          instituteId: { type: 'integer', minimum: 1, example: 1 },
+          curriculumCode: {
+            type: 'string',
+            maxLength: 40,
+            example: 'ISC-2010',
+          },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Ingeniería en Sistemas Computacionales',
+          },
+          shortName: {
+            type: 'string',
+            maxLength: 20,
+            example: 'ISC',
+          },
+          totalSemesters: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 14,
+            example: 9,
+          },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateCareerRequest: {
+        type: 'object',
+        required: ['curriculumCode', 'name', 'shortName', 'instituteId'],
+        properties: {
+          curriculumCode: {
+            type: 'string',
+            maxLength: 40,
+            example: 'ISC-2010',
+          },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Ingeniería en Sistemas Computacionales',
+          },
+          shortName: { type: 'string', maxLength: 20, example: 'ISC' },
+          totalSemesters: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 14,
+            default: 9,
+            example: 9,
+          },
+          instituteId: { type: 'integer', minimum: 1, example: 1 },
+          isActive: { type: 'boolean', default: true, example: true },
+        },
+      },
+      UpdateCareerRequest: {
+        type: 'object',
+        description:
+          'Todos los campos son opcionales; se envía al menos uno para actualizar.',
+        properties: {
+          curriculumCode: { type: 'string', maxLength: 40 },
+          name: { type: 'string', maxLength: 180 },
+          shortName: { type: 'string', maxLength: 20 },
+          totalSemesters: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 14,
+          },
+          instituteId: { type: 'integer', minimum: 1 },
           isActive: { type: 'boolean' },
         },
       },
