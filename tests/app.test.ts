@@ -99,6 +99,9 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
       '/auth/me/password',
       '/roles',
       '/roles/{id}',
+      '/audit-logs',
+      '/audit-logs/{id}',
+      '/dashboard/summary',
     ]) {
       assert.ok(doc.paths[path], `falta ${path} en Swagger`);
     }

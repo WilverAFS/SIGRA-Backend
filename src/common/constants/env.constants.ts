@@ -27,6 +27,9 @@ export const Env = {
   RABBITMQ_URL: process.env.RABBITMQ_URL ?? '',
   JWT_SECRET: process.env.JWT_SECRET ?? '',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? '',
+  // Auditoría asíncrona vía RabbitMQ (contrato 6.9). En `false` los eventos
+  // se guardan directo en la BD (lo usan los tests).
+  AUDIT_ASYNC: (process.env.AUDIT_ASYNC ?? 'true').toLowerCase() !== 'false',
 } as const;
 
 // ========================================================================= //

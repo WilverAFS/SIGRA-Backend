@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 
 import { Env, NodeEnvs } from '#src/common/constants/env.constants.ts';
 import Paths from '#src/common/constants/Paths/index.ts';
+import { auditTrail } from '#src/common/middleware/audit-trail.ts';
 import {
   errorHandler,
   notFoundHandler,
@@ -68,6 +69,9 @@ app.use(
 );
 
 // ================================== API ================================== //
+
+// Bitácora de auditoría de las mutaciones exitosas (contrato 6.9)
+app.use(auditTrail);
 
 app.use(Paths.PATH, BaseRouter);
 

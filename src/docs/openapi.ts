@@ -66,6 +66,8 @@ const openApiDocument = {
     { name: 'Autenticación', description: '6.1' },
     { name: 'Usuarios', description: '6.2 (solo ADMIN)' },
     { name: 'Roles', description: '6.2.6–6.2.7' },
+    { name: 'Auditoría', description: '6.9.1–6.9.2 (solo ADMIN)' },
+    { name: 'Dashboard', description: '6.10 (cualquier rol)' },
   ],
   // Seguridad Bearer por defecto (contrato 2.1); las rutas públicas la anulan.
   security: [{ bearerAuth: [] }],
@@ -344,6 +346,93 @@ const openApiDocument = {
         },
       },
     },
+    '/audit-logs': {
+      get: {
+        tags: ['Auditoría'],
+        summary: 'Listar eventos de auditoría (6.9.1)',
+        description:
+          'Más recientes primero (orden fijo; sort se ignora). Los eventos llegan vía RabbitMQ y pueden tardar unos segundos en aparecer.',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'userId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'action',
+            in: 'query',
+            schema: { type: 'string', maxLength: 60, example: 'USER_CREATED' },
+          },
+          {
+            name: 'entityName',
+            in: 'query',
+            schema: { type: 'string', maxLength: 60, example: 'users' },
+          },
+          { name: 'entityId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'from',
+            in: 'query',
+            description: 'Fecha ISO 8601 (inclusive).',
+            schema: { type: 'string', format: 'date-time' },
+          },
+          {
+            name: 'to',
+            in: 'query',
+            description: 'Fecha ISO 8601 (inclusive). Debe ser ≥ from.',
+            schema: { type: 'string', format: 'date-time' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Colección paginada de AuditLogResource.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'array', items: ref('AuditLogResource') },
+                  },
+                },
+              ],
+            }),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          422: Errors[422],
+        },
+      },
+    },
+    '/audit-logs/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Auditoría'],
+        summary: 'Obtener evento de auditoría (6.9.2)',
+        responses: {
+          200: {
+            description: 'AuditLogResource con su metadata.',
+            ...json(envelope(ref('AuditLogResource'))),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          422: Errors[422],
+        },
+      },
+    },
+    '/dashboard/summary': {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Obtener resumen del dashboard (6.10.1)',
+        description:
+          'Métricas según el rol del token, cacheadas en Redis 60 s por usuario. ESTUDIANTE recibe myAssignments y myMaterials en null; ADMIN recibe totales globales.',
+        responses: {
+          200: {
+            description: 'DashboardSummaryResource.',
+            ...json(envelope(ref('DashboardSummaryResource'))),
+          },
+          401: Errors[401],
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -616,6 +705,92 @@ const openApiDocument = {
           role: ref('RoleName'),
           careerId: { type: 'integer', nullable: true },
           isActive: { type: 'boolean' },
+        },
+      },
+      AuditLogResource: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1024 },
+          userId: { type: 'integer', nullable: true, example: 7 },
+          action: { type: 'string', example: 'MATERIAL_UPLOADED' },
+          entityName: { type: 'string', example: 'materials' },
+          entityId: { type: 'integer', nullable: true, example: 8 },
+          metadata: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+            example: { materialType: 'PLANEACION', versionNumber: 1 },
+          },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PeriodSummary: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 2 },
+          code: { type: 'string', example: '2026-2' },
+          name: { type: 'string', example: 'Agosto - Diciembre 2026' },
+        },
+      },
+      MaterialListItem: {
+        type: 'object',
+        description: 'MaterialResource (5.4.9) en forma de listado.',
+        properties: {
+          id: { type: 'integer', example: 8 },
+          subjectId: { type: 'integer', example: 3 },
+          authorId: { type: 'integer', example: 7 },
+          academicPeriodId: { type: 'integer', example: 2 },
+          title: { type: 'string', example: 'Planeación didáctica 2026-2' },
+          description: { type: 'string', nullable: true },
+          materialType: { type: 'string', example: 'PLANEACION' },
+          visibility: {
+            type: 'string',
+            enum: ['ESTUDIANTES_Y_DOCENTES', 'SOLO_DOCENTES'],
+          },
+          currentVersion: { type: 'integer', example: 1 },
+          syllabusChangesNote: { type: 'string', nullable: true },
+          downloadCount: { type: 'integer', example: 0 },
+          isApproved: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          author: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              firstName: { type: 'string' },
+              lastName: { type: 'string' },
+            },
+          },
+          subject: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              code: { type: 'string' },
+              name: { type: 'string' },
+            },
+          },
+          academicPeriod: ref('PeriodSummary'),
+        },
+      },
+      DashboardSummaryResource: {
+        type: 'object',
+        properties: {
+          currentPeriod: { ...ref('PeriodSummary'), nullable: true },
+          counts: {
+            type: 'object',
+            properties: {
+              activeCareers: { type: 'integer', example: 12 },
+              activeSubjects: { type: 'integer', example: 54 },
+              visibleMaterials: { type: 'integer', example: 128 },
+              myAssignments: { type: 'integer', nullable: true, example: 3 },
+              myMaterials: { type: 'integer', nullable: true, example: 8 },
+            },
+          },
+          recentMaterials: {
+            type: 'array',
+            maxItems: 5,
+            items: ref('MaterialListItem'),
+          },
         },
       },
       HealthResource: {

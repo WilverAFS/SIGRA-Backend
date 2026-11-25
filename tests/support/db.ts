@@ -5,6 +5,7 @@ import { after, before } from 'node:test';
 import prisma from '#src/common/infra/prisma.ts';
 import { closeRedis } from '#src/common/infra/redis.ts';
 import { hashPassword } from '#src/common/utils/password.utils.ts';
+import AuditService from '#src/services/AuditService.ts';
 
 // ========================================================================= //
 //                                   TYPES                                   //
@@ -52,6 +53,8 @@ export function useTestDatabase() {
  * roles, un instituto y una carrera.
  */
 export async function resetDb(): Promise<BaseData> {
+  // Que ningún evento de auditoría del test anterior se escriba a media limpieza
+  await AuditService.drain();
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename::text AS tablename FROM pg_tables
     WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;

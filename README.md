@@ -204,6 +204,18 @@ npm test
 
 El harness (`tests/support/db.ts`) aplica las migraciones a `sigra_test`, limpia las tablas antes de cada prueba y carga roles, un instituto y una carrera. Usa `useTestDatabase()`, `resetDb()` e `insertUser()` en las pruebas de tu módulo.
 
+### 5.9 Bitácora de auditoría (RabbitMQ)
+
+Toda mutación exitosa (`POST`, `PATCH`, `PUT`, `DELETE` con respuesta 2xx) bajo `/api/v1` se registra **automáticamente** con el middleware `auditTrail` (`src/common/middleware/audit-trail.ts`): acción `<ENTIDAD>_CREATED | _UPDATED | _DELETED`, entidad tomada de la ruta, usuario autenticado, IP y los nombres de los campos modificados (nunca sus valores). El evento se publica en la cola `sigra.audit` de RabbitMQ y el consumidor que arranca con el servidor lo guarda en `audit_logs`; si RabbitMQ no responde, se guarda directo para no perderlo.
+
+Para cambiar lo que se registra (por ejemplo `MATERIAL_UPLOADED` o `PLANEACION_VERSIONED`), la ruta deja un `AuditOverride` en `res.locals.audit` antes de responder:
+
+```ts
+res.locals.audit = { action: AuditActions.PLANEACION_VERSIONED, metadata: { versionNumber: 2 } };
+```
+
+`AUDIT_ASYNC=false` (en `config/.env.test`) guarda los eventos directo en la BD para que las pruebas sean deterministas.
+
 ## 6. Estructura general del backend
 
 ```text

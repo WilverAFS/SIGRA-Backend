@@ -5,7 +5,9 @@ import Paths from '#src/common/constants/Paths/index.ts';
 import { sendSuccess } from '#src/common/utils/response.utils.ts';
 import HealthService from '#src/services/HealthService.ts';
 
+import auditRouter from './audit.router.ts';
 import authRouter from './auth.router.ts';
+import dashboardRouter from './dashboard.router.ts';
 import roleRouter from './role.router.ts';
 import userRouter from './user.router.ts';
 
@@ -37,6 +39,12 @@ apiRouter.use(Paths.Users.PATH, userRouter);
 apiRouter.use(Paths.Roles.PATH, roleRouter);
 // 6.1 Autenticación → /api/v1/auth/...
 apiRouter.use(Paths.Auth.PATH, authRouter);
+
+// 6.9 Auditoría → /api/v1/audit-logs/...
+apiRouter.use(Paths.AuditLogs.PATH, auditRouter);
+
+// 6.10 Dashboard → /api/v1/dashboard/...
+apiRouter.use(Paths.Dashboard.PATH, dashboardRouter);
 
 // ========================================================================= //
 //                                    EXPORT                                 //
