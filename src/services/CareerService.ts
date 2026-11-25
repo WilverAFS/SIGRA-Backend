@@ -53,10 +53,7 @@ async function create(input: CreateCareerRequest): Promise<CareerResource> {
       input.curriculumCode,
     )
   ) {
-    throw new ConflictUniqueError(
-      'curriculumCode',
-      CareerMessages.CODE_TAKEN,
-    );
+    throw new ConflictUniqueError('curriculumCode', CareerMessages.CODE_TAKEN);
   }
   try {
     const created = await CareerRepo.create(input);
@@ -104,10 +101,7 @@ async function update(
     (input.instituteId !== undefined || input.curriculumCode !== undefined) &&
     (await CareerRepo.curriculumCodeTaken(nextInstituteId, nextCode, id))
   ) {
-    throw new ConflictUniqueError(
-      'curriculumCode',
-      CareerMessages.CODE_TAKEN,
-    );
+    throw new ConflictUniqueError('curriculumCode', CareerMessages.CODE_TAKEN);
   }
 
   try {

@@ -18,9 +18,7 @@ import {
   type UpdateCareerRequest,
   UpdateCareerSchema,
 } from '#src/entities/Career/index.ts';
-import CareerService, {
-  CareerMessages,
-} from '#src/services/CareerService.ts';
+import CareerService, { CareerMessages } from '#src/services/CareerService.ts';
 
 const P = Paths.Careers;
 const router = Router();
@@ -45,9 +43,7 @@ router.post(
   authorizeRoles('ADMIN'),
   validate({ body: CreateCareerSchema }),
   async (req, res) => {
-    const created = await CareerService.create(
-      req.body as CreateCareerRequest,
-    );
+    const created = await CareerService.create(req.body as CreateCareerRequest);
     sendCreated(res, created, CareerMessages.CREATED);
   },
 );

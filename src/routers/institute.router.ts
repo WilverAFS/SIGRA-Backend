@@ -59,7 +59,11 @@ router.get(
   validate({ params: IdParamsSchema }),
   async (_req, res) => {
     const { id } = res.locals.params as IdParams;
-    sendSuccess(res, await InstituteService.getOne(id), InstituteMessages.FOUND);
+    sendSuccess(
+      res,
+      await InstituteService.getOne(id),
+      InstituteMessages.FOUND,
+    );
   },
 );
 

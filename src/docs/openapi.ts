@@ -349,227 +349,228 @@ const openApiDocument = {
         },
       },
     },
-     '/institutes': {
-    get: {
+    '/institutes': {
+      get: {
         tags: ['Institutos'],
         summary: 'Listar institutos (6.3.1)',
         parameters: [
-        { $ref: '#/components/parameters/page' },
-        { $ref: '#/components/parameters/limit' },
-        { $ref: '#/components/parameters/search' },
-        {
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          {
             name: 'sort',
             in: 'query',
             schema: {
-            type: 'string',
-            enum: [
+              type: 'string',
+              enum: [
                 'name:asc',
                 'name:desc',
                 'code:asc',
                 'code:desc',
                 'createdAt:asc',
                 'createdAt:desc',
-            ],
-            default: 'name:asc',
+              ],
+              default: 'name:asc',
             },
-        },
-        { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+          },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
         ],
         responses: {
-        200: {
+          200: {
             description: 'Colección paginada de InstituteResource.',
             ...json({
-            allOf: [
+              allOf: [
                 ref('PaginatedEnvelope'),
                 {
-                type: 'object',
-                properties: {
+                  type: 'object',
+                  properties: {
                     data: { type: 'array', items: ref('InstituteResource') },
+                  },
                 },
-                },
-            ],
+              ],
             }),
+          },
+          401: Errors[401],
+          422: Errors[422],
         },
-        401: Errors[401],
-        422: Errors[422],
-        },
-    },
-    post: {
+      },
+      post: {
         tags: ['Institutos'],
         summary: 'Crear instituto (6.3.2)',
         requestBody: { required: true, ...json(ref('CreateInstituteRequest')) },
         responses: {
-        201: {
+          201: {
             description: 'InstituteResource creado.',
             ...json(envelope(ref('InstituteResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          409: Errors[409],
+          422: Errors[422],
         },
-        400: Errors[400],
-        401: Errors[401],
-        403: Errors[403],
-        409: Errors[409],
-        422: Errors[422],
-        },
-    },
+      },
     },
     '/institutes/{id}': {
-    parameters: [idParam],
-    get: {
+      parameters: [idParam],
+      get: {
         tags: ['Institutos'],
         summary: 'Obtener instituto (6.3.3)',
         responses: {
-        200: {
+          200: {
             description: 'InstituteResource.',
             ...json(envelope(ref('InstituteResource'))),
+          },
+          401: Errors[401],
+          404: Errors[404],
+          422: Errors[422],
         },
-        401: Errors[401],
-        404: Errors[404],
-        422: Errors[422],
-        },
-    },
-    patch: {
+      },
+      patch: {
         tags: ['Institutos'],
         summary: 'Actualizar instituto (6.3.4)',
         requestBody: { required: true, ...json(ref('UpdateInstituteRequest')) },
         responses: {
-        200: {
+          200: {
             description: 'InstituteResource actualizado.',
             ...json(envelope(ref('InstituteResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: Errors[409],
+          422: Errors[422],
         },
-        400: Errors[400],
-        401: Errors[401],
-        403: Errors[403],
-        404: Errors[404],
-        409: Errors[409],
-        422: Errors[422],
-        },
-    },
-    delete: {
+      },
+      delete: {
         tags: ['Institutos'],
         summary: 'Eliminar instituto (6.3.5)',
         responses: {
-        200: {
+          200: {
             description: 'data en null con mensaje de confirmación.',
             ...json(envelope({ nullable: true, example: null })),
-        },
-        401: Errors[401],
-        403: Errors[403],
-        404: Errors[404],
-        409: errorResponse(
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
             '409 RESOURCE_HAS_DEPENDENCIES: el instituto tiene carreras o usuarios asociados.',
-        ),
+          ),
         },
-    },
+      },
     },
     '/careers': {
-    get: {
+      get: {
         tags: ['Carreras'],
         summary: 'Listar carreras (6.4.1)',
         parameters: [
-        { $ref: '#/components/parameters/page' },
-        { $ref: '#/components/parameters/limit' },
-        { $ref: '#/components/parameters/search' },
-        {
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          {
             name: 'sort',
             in: 'query',
             schema: {
-            type: 'string',
-            enum: [
+              type: 'string',
+              enum: [
                 'name:asc',
                 'name:desc',
                 'curriculumCode:asc',
                 'curriculumCode:desc',
                 'createdAt:asc',
                 'createdAt:desc',
-            ],
-            default: 'name:asc',
+              ],
+              default: 'name:asc',
             },
-        },
-        { name: 'instituteId', in: 'query', schema: { type: 'integer' } },
-        { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+          },
+          { name: 'instituteId', in: 'query', schema: { type: 'integer' } },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
         ],
         responses: {
-        200: {
+          200: {
             description: 'Colección paginada de CareerResource.',
             ...json({
-            allOf: [
+              allOf: [
                 ref('PaginatedEnvelope'),
                 {
-                type: 'object',
-                properties: {
+                  type: 'object',
+                  properties: {
                     data: { type: 'array', items: ref('CareerResource') },
+                  },
                 },
-                },
-            ],
+              ],
             }),
+          },
+          401: Errors[401],
+          422: Errors[422],
         },
-        401: Errors[401],
-        422: Errors[422],
-        },
-    },
-    post: {
+      },
+      post: {
         tags: ['Carreras'],
         summary: 'Crear carrera (6.4.2)',
         requestBody: { required: true, ...json(ref('CreateCareerRequest')) },
         responses: {
-        201: {
+          201: {
             description: 'CareerResource creado.',
             ...json(envelope(ref('CareerResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          409: Errors[409],
+          422: Errors[422],
         },
-        400: Errors[400],
-        401: Errors[401],
-        403: Errors[403],
-        409: Errors[409],
-        422: Errors[422],
-        },
-    },
+      },
     },
     '/careers/{id}': {
-    parameters: [idParam],
-    get: {
+      parameters: [idParam],
+      get: {
         tags: ['Carreras'],
         summary: 'Obtener carrera (6.4.3)',
         responses: {
-        200: {
+          200: {
             description: 'CareerResource.',
             ...json(envelope(ref('CareerResource'))),
+          },
+          401: Errors[401],
+          404: Errors[404],
+          422: Errors[422],
         },
-        401: Errors[401],
-        404: Errors[404],
-        422: Errors[422],
-        },
-    },
-    patch: {
+      },
+      patch: {
         tags: ['Carreras'],
         summary: 'Actualizar carrera (6.4.4)',
         requestBody: { required: true, ...json(ref('UpdateCareerRequest')) },
         responses: {
-        200: {
+          200: {
             description: 'CareerResource actualizado.',
             ...json(envelope(ref('CareerResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: Errors[409],
+          422: Errors[422],
         },
-        400: Errors[400],
-        401: Errors[401],
-        403: Errors[403],
-        404: Errors[404],
-        409: Errors[409],
-        422: Errors[422],
-        },
-    },
-    delete: {
+      },
+      delete: {
         tags: ['Carreras'],
         summary: 'Eliminar carrera (6.4.5)',
         responses: {
-        200: {
+          200: {
             description: 'data en null con mensaje de confirmación.',
             ...json(envelope({ nullable: true, example: null })),
-        },
-        401: Errors[401],
-        403: Errors[403],
-        404: Errors[404],
-        409: errorResponse(
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
             '409 RESOURCE_HAS_DEPENDENCIES: la carrera tiene materias o usuarios asociados.',
-        ),
+          ),
         },
+      },
     },
     },
     '/audit-logs': {

@@ -113,6 +113,35 @@ describe('Institutos (6.3)', () => {
     assertError(delRes, 403, ErrorCodes.FORBIDDEN_ROLE);
   });
 
+  it('responde 404 en GET/PATCH/DELETE de instituto inexistente y 422 ante datos inválidos', async () => {
+    assertError(
+      await agent.get(P.GetOne.format(9999)).set('Authorization', adminAuth),
+      404,
+      ErrorCodes.RESOURCE_NOT_FOUND,
+    );
+    assertError(
+      await agent
+        .patch(P.Update.format(9999))
+        .set('Authorization', adminAuth)
+        .send({ city: 'Oaxaca' }),
+      404,
+      ErrorCodes.RESOURCE_NOT_FOUND,
+    );
+    assertError(
+      await agent.delete(P.Delete.format(9999)).set('Authorization', adminAuth),
+      404,
+      ErrorCodes.RESOURCE_NOT_FOUND,
+    );
+    assertError(
+      await agent
+        .post(P.Add.FULL_PATH)
+        .set('Authorization', adminAuth)
+        .send({ code: '' }),
+      422,
+      ErrorCodes.VALIDATION_ERROR,
+    );
+  });
+
   it('responde 409 CONFLICT_UNIQUE si code se repite y 409 RESOURCE_HAS_DEPENDENCIES al eliminar instituto con carreras/usuarios', async () => {
     const dupRes = await agent
       .post(P.Add.FULL_PATH)
