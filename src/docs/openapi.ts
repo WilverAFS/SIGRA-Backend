@@ -572,7 +572,6 @@ const openApiDocument = {
         },
       },
     },
-    },
     '/audit-logs': {
       get: {
         tags: ['Auditoría'],

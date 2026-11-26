@@ -9,7 +9,6 @@ import authRouter from './auth.router.ts';
 import careerRouter from './career.router.ts';
 import instituteRouter from './institute.router.ts';
 import auditRouter from './audit.router.ts';
-import authRouter from './auth.router.ts';
 import dashboardRouter from './dashboard.router.ts';
 import roleRouter from './role.router.ts';
 import userRouter from './user.router.ts';
