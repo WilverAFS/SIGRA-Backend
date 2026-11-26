@@ -18,6 +18,14 @@ const roleById = (id: string | number) => `${ROLES}/${pp(id)}`;
 
 const userById = (id: string | number) => `${USERS}/${pp(id)}`;
 
+const INSTITUTES_BASE = '/institutes';
+const INSTITUTES = BASE + INSTITUTES_BASE;
+const instituteById = (id: string | number) => `${INSTITUTES}/${pp(id)}`;
+
+const CAREERS_BASE = '/careers';
+const CAREERS = BASE + CAREERS_BASE;
+const careerById = (id: string | number) => `${CAREERS}/${pp(id)}`;
+
 const AUDIT_BASE = '/audit-logs';
 const AUDIT = BASE + AUDIT_BASE;
 const auditLogById = (id: string | number) => `${AUDIT}/${pp(id)}`;
@@ -62,6 +70,26 @@ const Paths = {
     PATH: ROLES_BASE,
     Get: ep(ROLES, '', 'GET'), // 6.2.6 Listar
     GetOne: { ...ep(ROLES, '/:id', 'GET'), format: roleById }, // 6.2.7 Obtener
+  },
+
+  // Módulo 3: Institutos (6.3)
+  Institutes: {
+    PATH: INSTITUTES_BASE,
+    Get: ep(INSTITUTES, '', 'GET'),
+    Add: ep(INSTITUTES, '', 'POST'),
+    GetOne: { ...ep(INSTITUTES, '/:id', 'GET'), format: instituteById },
+    Update: { ...ep(INSTITUTES, '/:id', 'PATCH'), format: instituteById },
+    Delete: { ...ep(INSTITUTES, '/:id', 'DELETE'), format: instituteById },
+  },
+
+  // Módulo 4: Carreras (6.4)
+  Careers: {
+    PATH: CAREERS_BASE,
+    Get: ep(CAREERS, '', 'GET'),
+    Add: ep(CAREERS, '', 'POST'),
+    GetOne: { ...ep(CAREERS, '/:id', 'GET'), format: careerById },
+    Update: { ...ep(CAREERS, '/:id', 'PATCH'), format: careerById },
+    Delete: { ...ep(CAREERS, '/:id', 'DELETE'), format: careerById },
   },
 
   // Módulo 9: Auditoría (6.9.1–6.9.2)

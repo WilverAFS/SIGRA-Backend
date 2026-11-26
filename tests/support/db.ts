@@ -71,7 +71,7 @@ export async function resetDb(): Promise<BaseData> {
   );
   const institute = await prisma.institute.create({
     data: {
-      code: 'TEST-ITO',
+      code: 'ITO',
       name: 'Instituto Tecnológico de Prueba',
       shortName: 'ITP',
       city: 'Oaxaca de Juárez',
