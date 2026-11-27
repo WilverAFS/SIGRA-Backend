@@ -5,12 +5,15 @@ import Paths from '#src/common/constants/Paths/index.ts';
 import { sendSuccess } from '#src/common/utils/response.utils.ts';
 import HealthService from '#src/services/HealthService.ts';
 
+import academicPeriodRouter from './academic-period.router.ts';
+import auditRouter from './audit.router.ts';
 import authRouter from './auth.router.ts';
 import careerRouter from './career.router.ts';
-import instituteRouter from './institute.router.ts';
-import auditRouter from './audit.router.ts';
 import dashboardRouter from './dashboard.router.ts';
+import instituteRouter from './institute.router.ts';
 import roleRouter from './role.router.ts';
+import subjectAssignmentRouter from './subject-assignment.router.ts';
+import subjectRouter from './subject.router.ts';
 import userRouter from './user.router.ts';
 
 // ========================================================================= //
@@ -45,6 +48,12 @@ apiRouter.use(Paths.Auth.PATH, authRouter);
 apiRouter.use(Paths.Institutes.PATH, instituteRouter);
 // 6.4 Carreras → /api/v1/careers/...
 apiRouter.use(Paths.Careers.PATH, careerRouter);
+// 6.5 Periodos académicos → /api/v1/academic-periods/...
+apiRouter.use(Paths.AcademicPeriods.PATH, academicPeriodRouter);
+// 6.6 Materias → /api/v1/subjects/...
+apiRouter.use(Paths.Subjects.PATH, subjectRouter);
+// 6.7 Asignaciones → /api/v1/subject-assignments/...
+apiRouter.use(Paths.SubjectAssignments.PATH, subjectAssignmentRouter);
 
 // 6.9 Auditoría → /api/v1/audit-logs/...
 apiRouter.use(Paths.AuditLogs.PATH, auditRouter);

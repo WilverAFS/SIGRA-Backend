@@ -26,6 +26,22 @@ const CAREERS_BASE = '/careers';
 const CAREERS = BASE + CAREERS_BASE;
 const careerById = (id: string | number) => `${CAREERS}/${pp(id)}`;
 
+const ACADEMIC_PERIODS_BASE = '/academic-periods';
+const ACADEMIC_PERIODS = BASE + ACADEMIC_PERIODS_BASE;
+const academicPeriodById = (id: string | number) =>
+  `${ACADEMIC_PERIODS}/${pp(id)}`;
+const setCurrentPeriod = (id: string | number) =>
+  `${academicPeriodById(id)}/set-current`;
+
+const SUBJECTS_BASE = '/subjects';
+const SUBJECTS = BASE + SUBJECTS_BASE;
+const subjectById = (id: string | number) => `${SUBJECTS}/${pp(id)}`;
+
+const SUBJECT_ASSIGNMENTS_BASE = '/subject-assignments';
+const SUBJECT_ASSIGNMENTS = BASE + SUBJECT_ASSIGNMENTS_BASE;
+const subjectAssignmentById = (id: string | number) =>
+  `${SUBJECT_ASSIGNMENTS}/${pp(id)}`;
+
 const AUDIT_BASE = '/audit-logs';
 const AUDIT = BASE + AUDIT_BASE;
 const auditLogById = (id: string | number) => `${AUDIT}/${pp(id)}`;
@@ -90,6 +106,55 @@ const Paths = {
     GetOne: { ...ep(CAREERS, '/:id', 'GET'), format: careerById },
     Update: { ...ep(CAREERS, '/:id', 'PATCH'), format: careerById },
     Delete: { ...ep(CAREERS, '/:id', 'DELETE'), format: careerById },
+  },
+
+  // Módulo 5: Periodos académicos (6.5)
+  AcademicPeriods: {
+    PATH: ACADEMIC_PERIODS_BASE,
+    Get: ep(ACADEMIC_PERIODS, '', 'GET'), // 6.5.1 Listar
+    Add: ep(ACADEMIC_PERIODS, '', 'POST'), // 6.5.2 Crear
+    Current: ep(ACADEMIC_PERIODS, '/current', 'GET'), // 6.5.3 Vigente
+    GetOne: {
+      ...ep(ACADEMIC_PERIODS, '/:id', 'GET'),
+      format: academicPeriodById,
+    }, // 6.5.4
+    Update: {
+      ...ep(ACADEMIC_PERIODS, '/:id', 'PATCH'),
+      format: academicPeriodById,
+    }, // 6.5.5
+    SetCurrent: {
+      ...ep(ACADEMIC_PERIODS, '/:id/set-current', 'PATCH'),
+      format: setCurrentPeriod,
+    }, // 6.5.6
+    Delete: {
+      ...ep(ACADEMIC_PERIODS, '/:id', 'DELETE'),
+      format: academicPeriodById,
+    }, // 6.5.7
+  },
+
+  // Módulo 6: Materias (6.6)
+  Subjects: {
+    PATH: SUBJECTS_BASE,
+    Get: ep(SUBJECTS, '', 'GET'), // 6.6.1 Listar
+    Add: ep(SUBJECTS, '', 'POST'), // 6.6.2 Crear
+    GetOne: { ...ep(SUBJECTS, '/:id', 'GET'), format: subjectById }, // 6.6.3
+    Update: { ...ep(SUBJECTS, '/:id', 'PATCH'), format: subjectById }, // 6.6.4
+    Delete: { ...ep(SUBJECTS, '/:id', 'DELETE'), format: subjectById }, // 6.6.5
+  },
+
+  // Módulo 7: Asignaciones de carga académica (6.7)
+  SubjectAssignments: {
+    PATH: SUBJECT_ASSIGNMENTS_BASE,
+    Get: ep(SUBJECT_ASSIGNMENTS, '', 'GET'), // 6.7.1 Listar
+    Add: ep(SUBJECT_ASSIGNMENTS, '', 'POST'), // 6.7.2 Crear
+    GetOne: {
+      ...ep(SUBJECT_ASSIGNMENTS, '/:id', 'GET'),
+      format: subjectAssignmentById,
+    }, // 6.7.3
+    Delete: {
+      ...ep(SUBJECT_ASSIGNMENTS, '/:id', 'DELETE'),
+      format: subjectAssignmentById,
+    }, // 6.7.4
   },
 
   // Módulo 9: Auditoría (6.9.1–6.9.2)

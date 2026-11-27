@@ -103,12 +103,25 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
       '/institutes/{id}',
       '/careers',
       '/careers/{id}',
+      '/academic-periods',
+      '/academic-periods/current',
+      '/academic-periods/{id}',
+      '/academic-periods/{id}/set-current',
+      '/subjects',
+      '/subjects/{id}',
+      '/subject-assignments',
+      '/subject-assignments/{id}',
       '/audit-logs',
       '/audit-logs/{id}',
       '/dashboard/summary',
     ]) {
       assert.ok(doc.paths[path], `falta ${path} en Swagger`);
     }
+    assert.equal(
+      Object.keys(doc.paths).length,
+      26,
+      'deben estar documentados exactamente los 26 paths del contrato',
+    );
     for (const path of ['/auth/register', '/auth/login', '/auth/refresh']) {
       assert.deepEqual(doc.paths[path]?.post?.security, []);
     }

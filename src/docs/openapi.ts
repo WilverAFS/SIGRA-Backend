@@ -68,7 +68,9 @@ const openApiDocument = {
     { name: 'Roles', description: '6.2.6–6.2.7' },
     { name: 'Institutos', description: '6.3' },
     { name: 'Carreras', description: '6.4' },
-
+    { name: 'Periodos académicos', description: '6.5' },
+    { name: 'Materias', description: '6.6' },
+    { name: 'Asignaciones', description: '6.7' },
     { name: 'Auditoría', description: '6.9.1–6.9.2 (solo ADMIN)' },
     { name: 'Dashboard', description: '6.10 (cualquier rol)' },
   ],
@@ -569,6 +571,418 @@ const openApiDocument = {
           409: errorResponse(
             '409 RESOURCE_HAS_DEPENDENCIES: la carrera tiene materias o usuarios asociados.',
           ),
+        },
+      },
+    },
+    '/academic-periods': {
+      get: {
+        tags: ['Periodos académicos'],
+        summary: 'Listar periodos académicos (6.5.1)',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'code:asc',
+                'code:desc',
+                'name:asc',
+                'name:desc',
+                'startDate:asc',
+                'startDate:desc',
+                'endDate:asc',
+                'endDate:desc',
+                'createdAt:asc',
+                'createdAt:desc',
+              ],
+              default: 'startDate:desc',
+            },
+          },
+          { name: 'isCurrent', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          200: {
+            description: 'Colección paginada de AcademicPeriodResource.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: ref('AcademicPeriodResource'),
+                    },
+                  },
+                },
+              ],
+            }),
+          },
+          401: Errors[401],
+          422: Errors[422],
+        },
+      },
+      post: {
+        tags: ['Periodos académicos'],
+        summary: 'Crear periodo académico (6.5.2, solo ADMIN)',
+        description: 'El periodo nace con isCurrent en false.',
+        requestBody: {
+          required: true,
+          ...json(ref('CreateAcademicPeriodRequest')),
+        },
+        responses: {
+          201: {
+            description: 'AcademicPeriodResource creado.',
+            ...json(envelope(ref('AcademicPeriodResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          409: errorResponse(
+            '409 CONFLICT_UNIQUE: el código de periodo ya existe.',
+          ),
+          422: Errors[422],
+        },
+      },
+    },
+    '/academic-periods/current': {
+      get: {
+        tags: ['Periodos académicos'],
+        summary: 'Obtener el periodo vigente (6.5.3)',
+        description:
+          'Se evalúa antes que GET /academic-periods/{id}; 404 si ninguno está fijado como vigente.',
+        responses: {
+          200: {
+            description: 'AcademicPeriodResource vigente.',
+            ...json(envelope(ref('AcademicPeriodResource'))),
+          },
+          401: Errors[401],
+          404: Errors[404],
+        },
+      },
+    },
+    '/academic-periods/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Periodos académicos'],
+        summary: 'Obtener periodo académico (6.5.4)',
+        responses: {
+          200: {
+            description: 'AcademicPeriodResource.',
+            ...json(envelope(ref('AcademicPeriodResource'))),
+          },
+          401: Errors[401],
+          404: Errors[404],
+          422: Errors[422],
+        },
+      },
+      patch: {
+        tags: ['Periodos académicos'],
+        summary: 'Actualizar periodo académico (6.5.5, solo ADMIN)',
+        description:
+          'Actualización parcial. No acepta isCurrent: use 6.5.6 para cambiar la vigencia.',
+        requestBody: {
+          required: true,
+          ...json(ref('UpdateAcademicPeriodRequest')),
+        },
+        responses: {
+          200: {
+            description: 'AcademicPeriodResource actualizado.',
+            ...json(envelope(ref('AcademicPeriodResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
+            '409 CONFLICT_UNIQUE: el código de periodo ya existe.',
+          ),
+          422: Errors[422],
+        },
+      },
+      delete: {
+        tags: ['Periodos académicos'],
+        summary: 'Eliminar periodo académico (6.5.7, solo ADMIN)',
+        responses: {
+          200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
+            '409 RESOURCE_HAS_DEPENDENCIES: el periodo tiene asignaciones o materiales.',
+          ),
+        },
+      },
+    },
+    '/academic-periods/{id}/set-current': {
+      parameters: [idParam],
+      patch: {
+        tags: ['Periodos académicos'],
+        summary: 'Definir el periodo vigente (6.5.6, solo ADMIN)',
+        description:
+          'Desmarca el periodo vigente anterior y marca este en la misma operación.',
+        responses: {
+          200: {
+            description: 'AcademicPeriodResource fijado como vigente.',
+            ...json(envelope(ref('AcademicPeriodResource'))),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse('409 PERIOD_ALREADY_CURRENT: ya es el vigente.'),
+        },
+      },
+    },
+    '/subjects': {
+      get: {
+        tags: ['Materias'],
+        summary: 'Listar materias (6.6.1)',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          {
+            name: 'search',
+            in: 'query',
+            description: 'Busca por nombre o clave de la materia.',
+            schema: { type: 'string' },
+          },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'semester:asc',
+                'semester:desc',
+                'code:asc',
+                'code:desc',
+                'name:asc',
+                'name:desc',
+              ],
+              default: 'semester:asc',
+            },
+          },
+          { name: 'careerId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'semester',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 12 },
+          },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          200: {
+            description: 'Colección paginada de SubjectResource.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'array', items: ref('SubjectResource') },
+                  },
+                },
+              ],
+            }),
+          },
+          401: Errors[401],
+          422: Errors[422],
+        },
+      },
+      post: {
+        tags: ['Materias'],
+        summary: 'Crear materia (6.6.2, solo ADMIN)',
+        requestBody: { required: true, ...json(ref('CreateSubjectRequest')) },
+        responses: {
+          201: {
+            description: 'SubjectResource creado.',
+            ...json(envelope(ref('SubjectResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          409: errorResponse(
+            '409 CONFLICT_UNIQUE: el código ya existe en la carrera.',
+          ),
+          422: Errors[422],
+        },
+      },
+    },
+    '/subjects/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Materias'],
+        summary: 'Obtener materia (6.6.3)',
+        responses: {
+          200: {
+            description: 'SubjectResource.',
+            ...json(envelope(ref('SubjectResource'))),
+          },
+          401: Errors[401],
+          404: Errors[404],
+          422: Errors[422],
+        },
+      },
+      patch: {
+        tags: ['Materias'],
+        summary: 'Actualizar materia (6.6.4, solo ADMIN)',
+        requestBody: { required: true, ...json(ref('UpdateSubjectRequest')) },
+        responses: {
+          200: {
+            description: 'SubjectResource actualizado.',
+            ...json(envelope(ref('SubjectResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
+            '409 CONFLICT_UNIQUE: el código ya existe en la carrera.',
+          ),
+          422: Errors[422],
+        },
+      },
+      delete: {
+        tags: ['Materias'],
+        summary: 'Eliminar materia (6.6.5, solo ADMIN)',
+        description:
+          'Bloqueada si tiene asignaciones o materiales; use isActive en false como alternativa.',
+        responses: {
+          200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          409: errorResponse(
+            '409 RESOURCE_HAS_DEPENDENCIES: la materia tiene asignaciones o materiales.',
+          ),
+        },
+      },
+    },
+    '/subject-assignments': {
+      get: {
+        tags: ['Asignaciones'],
+        summary: 'Listar asignaciones de carga académica (6.7.1)',
+        description:
+          'ADMIN ve todas; DOCENTE siempre solo las suyas. ESTUDIANTE recibe 403 FORBIDDEN_ROLE.',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'createdAt:asc',
+                'createdAt:desc',
+                'groupCode:asc',
+                'groupCode:desc',
+                'id:asc',
+                'id:desc',
+              ],
+              default: 'createdAt:desc',
+            },
+          },
+          { name: 'teacherId', in: 'query', schema: { type: 'integer' } },
+          { name: 'subjectId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'academicPeriodId',
+            in: 'query',
+            schema: { type: 'integer' },
+          },
+          { name: 'groupCode', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: {
+          200: {
+            description: 'Colección paginada de SubjectAssignmentResource.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: ref('SubjectAssignmentResource'),
+                    },
+                  },
+                },
+              ],
+            }),
+          },
+          401: Errors[401],
+          403: errorResponse('403 FORBIDDEN_ROLE: rol ESTUDIANTE.'),
+          422: Errors[422],
+        },
+      },
+      post: {
+        tags: ['Asignaciones'],
+        summary: 'Crear asignación de carga académica (6.7.2, solo ADMIN)',
+        description: 'assignedBy se toma del token del administrador.',
+        requestBody: {
+          required: true,
+          ...json(ref('CreateSubjectAssignmentRequest')),
+        },
+        responses: {
+          201: {
+            description: 'SubjectAssignmentResource creado.',
+            ...json(envelope(ref('SubjectAssignmentResource'))),
+          },
+          400: Errors[400],
+          401: Errors[401],
+          403: Errors[403],
+          409: errorResponse(
+            '409 ASSIGNMENT_DUPLICATED: ya existe esa combinación de materia, docente, periodo y grupo.',
+          ),
+          422: Errors[422],
+        },
+      },
+    },
+    '/subject-assignments/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Asignaciones'],
+        summary: 'Obtener asignación (6.7.3)',
+        description:
+          'DOCENTE solo si la asignación es suya; si es de otro, 403 FORBIDDEN_OWNERSHIP.',
+        responses: {
+          200: {
+            description: 'SubjectAssignmentResource.',
+            ...json(envelope(ref('SubjectAssignmentResource'))),
+          },
+          401: Errors[401],
+          403: errorResponse(
+            '403 FORBIDDEN_OWNERSHIP: la asignación pertenece a otro docente.',
+          ),
+          404: Errors[404],
+          422: Errors[422],
+        },
+      },
+      delete: {
+        tags: ['Asignaciones'],
+        summary: 'Eliminar asignación (6.7.4, solo ADMIN)',
+        description:
+          'Borrado físico; no elimina la materia ni al docente. No existe PATCH en v1.',
+        responses: {
+          200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          401: Errors[401],
+          403: Errors[403],
+          404: Errors[404],
+          422: Errors[422],
         },
       },
     },
@@ -1074,6 +1488,210 @@ const openApiDocument = {
           },
           instituteId: { type: 'integer', minimum: 1 },
           isActive: { type: 'boolean' },
+        },
+      },
+      AcademicPeriodResource: {
+        type: 'object',
+        required: [
+          'id',
+          'code',
+          'name',
+          'startDate',
+          'endDate',
+          'isCurrent',
+          'createdAt',
+        ],
+        properties: {
+          id: { type: 'integer', example: 2 },
+          code: { type: 'string', maxLength: 20, example: '2026-2' },
+          name: {
+            type: 'string',
+            maxLength: 100,
+            example: 'Agosto - Diciembre 2026',
+          },
+          startDate: { type: 'string', format: 'date', example: '2026-08-24' },
+          endDate: { type: 'string', format: 'date', example: '2026-12-11' },
+          isCurrent: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateAcademicPeriodRequest: {
+        type: 'object',
+        required: ['code', 'name', 'startDate', 'endDate'],
+        properties: {
+          code: { type: 'string', maxLength: 20, example: '2026-2' },
+          name: {
+            type: 'string',
+            maxLength: 100,
+            example: 'Agosto - Diciembre 2026',
+          },
+          startDate: { type: 'string', format: 'date', example: '2026-08-24' },
+          endDate: { type: 'string', format: 'date', example: '2026-12-11' },
+        },
+        description:
+          'endDate debe ser posterior a startDate. No acepta isCurrent.',
+      },
+      UpdateAcademicPeriodRequest: {
+        type: 'object',
+        description:
+          'Todos los campos son opcionales; se envía al menos uno. No acepta isCurrent.',
+        properties: {
+          code: { type: 'string', maxLength: 20 },
+          name: { type: 'string', maxLength: 100 },
+          startDate: { type: 'string', format: 'date' },
+          endDate: { type: 'string', format: 'date' },
+        },
+      },
+      SubjectResource: {
+        type: 'object',
+        required: [
+          'id',
+          'careerId',
+          'code',
+          'name',
+          'semester',
+          'creditsTheory',
+          'creditsPractice',
+          'totalCredits',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: { type: 'integer', example: 3 },
+          careerId: { type: 'integer', example: 1 },
+          code: { type: 'string', maxLength: 30, example: 'DSD-2303' },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Desarrollo de Servicios Web',
+          },
+          semester: { type: 'integer', minimum: 1, maximum: 12, example: 8 },
+          creditsTheory: { type: 'integer', minimum: 0, example: 2 },
+          creditsPractice: { type: 'integer', minimum: 0, example: 3 },
+          totalCredits: {
+            type: 'integer',
+            readOnly: true,
+            example: 5,
+            description: 'Calculado: creditsTheory + creditsPractice.',
+          },
+          syllabusSummary: { type: 'string', nullable: true },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateSubjectRequest: {
+        type: 'object',
+        required: [
+          'careerId',
+          'code',
+          'name',
+          'semester',
+          'creditsTheory',
+          'creditsPractice',
+        ],
+        properties: {
+          careerId: { type: 'integer', minimum: 1, example: 1 },
+          code: { type: 'string', maxLength: 30, example: 'DSD-2303' },
+          name: {
+            type: 'string',
+            maxLength: 180,
+            example: 'Desarrollo de Servicios Web',
+          },
+          semester: { type: 'integer', minimum: 1, maximum: 12, example: 8 },
+          creditsTheory: { type: 'integer', minimum: 0, example: 2 },
+          creditsPractice: { type: 'integer', minimum: 0, example: 3 },
+          syllabusSummary: {
+            type: 'string',
+            nullable: true,
+            example: 'Arquitecturas REST/SOAP, autenticación JWT.',
+          },
+          isActive: { type: 'boolean', default: true, example: true },
+        },
+        description: 'No acepta totalCredits: es calculado y de solo lectura.',
+      },
+      UpdateSubjectRequest: {
+        type: 'object',
+        description:
+          'Todos los campos son opcionales; se envía al menos uno. No acepta totalCredits.',
+        properties: {
+          careerId: { type: 'integer', minimum: 1 },
+          code: { type: 'string', maxLength: 30 },
+          name: { type: 'string', maxLength: 180 },
+          semester: { type: 'integer', minimum: 1, maximum: 12 },
+          creditsTheory: { type: 'integer', minimum: 0 },
+          creditsPractice: { type: 'integer', minimum: 0 },
+          syllabusSummary: { type: 'string', nullable: true },
+          isActive: { type: 'boolean' },
+        },
+      },
+      SubjectAssignmentResource: {
+        type: 'object',
+        required: [
+          'id',
+          'subjectId',
+          'teacherId',
+          'academicPeriodId',
+          'groupCode',
+          'assignedBy',
+          'createdAt',
+          'subject',
+          'teacher',
+          'academicPeriod',
+        ],
+        properties: {
+          id: { type: 'integer', example: 5 },
+          subjectId: { type: 'integer', example: 3 },
+          teacherId: { type: 'integer', example: 7 },
+          academicPeriodId: { type: 'integer', example: 2 },
+          groupCode: { type: 'string', maxLength: 20, example: '8SC' },
+          assignedBy: {
+            type: 'integer',
+            nullable: true,
+            example: 1,
+            description: 'Administrador que registró la asignación.',
+          },
+          createdAt: { type: 'string', format: 'date-time' },
+          subject: ref('SubjectSummary'),
+          teacher: ref('TeacherSummary'),
+          academicPeriod: ref('PeriodSummary'),
+        },
+      },
+      CreateSubjectAssignmentRequest: {
+        type: 'object',
+        required: ['subjectId', 'teacherId', 'academicPeriodId', 'groupCode'],
+        properties: {
+          subjectId: { type: 'integer', minimum: 1, example: 3 },
+          teacherId: {
+            type: 'integer',
+            minimum: 1,
+            example: 7,
+            description: 'Debe ser un usuario activo con rol DOCENTE.',
+          },
+          academicPeriodId: { type: 'integer', minimum: 1, example: 2 },
+          groupCode: { type: 'string', maxLength: 20, example: '8SC' },
+        },
+        description:
+          'No acepta assignedBy: lo fija el backend desde el token del ADMIN.',
+      },
+      SubjectSummary: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 3 },
+          code: { type: 'string', example: 'DSD-2303' },
+          name: {
+            type: 'string',
+            example: 'Desarrollo de Servicios Web',
+          },
+        },
+      },
+      TeacherSummary: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 7 },
+          firstName: { type: 'string', example: 'Wilver Alfredo' },
+          lastName: { type: 'string', example: 'Flores Santiago' },
         },
       },
       AuditLogResource: {
