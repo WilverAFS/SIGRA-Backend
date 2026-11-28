@@ -21,6 +21,39 @@ const errorResponse = (description: string) => ({
   ...json(ref('ErrorEnvelope')),
 });
 
+/** Descarga exitosa: binario sin envoltura JSON (6.8.6 y 6.8.10). */
+const binaryResponse = (description: string) => ({
+  description,
+  headers: {
+    'Content-Type': { schema: { type: 'string', example: 'application/pdf' } },
+    'Content-Disposition': {
+      schema: {
+        type: 'string',
+        example: 'attachment; filename="planeacion.pdf"',
+      },
+    },
+  },
+  content: {
+    'application/pdf': { schema: { type: 'string', format: 'binary' } },
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+      schema: { type: 'string', format: 'binary' },
+    },
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+      {
+        schema: { type: 'string', format: 'binary' },
+      },
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+      schema: { type: 'string', format: 'binary' },
+    },
+  },
+});
+
+/** Cuerpo multipart con el archivo y sus campos de texto. */
+const multipart = (schema: object, required: boolean) => ({
+  required,
+  content: { 'multipart/form-data': { schema } },
+});
+
 const Errors = {
   400: errorResponse('400 BAD_REQUEST: JSON inválido o cuerpo ausente.'),
   401: errorResponse(
@@ -36,12 +69,46 @@ const Errors = {
   500: errorResponse('500 INTERNAL_ERROR.'),
 } as const;
 
+/** Errores propios de las subidas y descargas de materiales (capítulo 6.8). */
+const MaterialErrors = {
+  400: errorResponse('400 BAD_REQUEST: falta el campo `file`.'),
+  401: Errors[401],
+  403: errorResponse(
+    '403 FORBIDDEN_ROLE / FORBIDDEN_OWNERSHIP / FORBIDDEN_SUBJECT_ASSIGNMENT.',
+  ),
+  404: errorResponse('404 RESOURCE_NOT_FOUND / VERSION_NOT_FOUND.'),
+  413: errorResponse('413 FILE_TOO_LARGE: el archivo supera 25 MB.'),
+  415: errorResponse(
+    '415 FILE_TYPE_NOT_ALLOWED: la extensión y el MIME deben coincidir con PDF, Word, PowerPoint o Excel.',
+  ),
+  422: Errors[422],
+  503: errorResponse('503: el almacenamiento de archivos no está disponible.'),
+} as const;
+
 const idParam = {
   name: 'id',
   in: 'path',
   required: true,
   schema: { type: 'integer', minimum: 1 },
 };
+
+const versionNumberParam = {
+  name: 'versionNumber',
+  in: 'path',
+  required: true,
+  schema: { type: 'integer', minimum: 1 },
+};
+
+const MATERIAL_TYPES = [
+  'PLANEACION',
+  'TEMARIO',
+  'APUNTE',
+  'DIAPOSITIVA',
+  'PRACTICA',
+  'EVALUACION',
+  'OTRO',
+];
+const MATERIAL_VISIBILITIES = ['ESTUDIANTES_Y_DOCENTES', 'SOLO_DOCENTES'];
 
 // ========================================================================= //
 //                                 DOCUMENT                                  //
@@ -71,6 +138,7 @@ const openApiDocument = {
     { name: 'Periodos académicos', description: '6.5' },
     { name: 'Materias', description: '6.6' },
     { name: 'Asignaciones', description: '6.7' },
+    { name: 'Materiales', description: '6.8 (materiales y versiones)' },
     { name: 'Auditoría', description: '6.9.1–6.9.2 (solo ADMIN)' },
     { name: 'Dashboard', description: '6.10 (cualquier rol)' },
   ],
@@ -986,6 +1054,263 @@ const openApiDocument = {
         },
       },
     },
+    '/materials': {
+      get: {
+        tags: ['Materiales'],
+        summary: 'Listar y buscar materiales (6.8.1)',
+        description:
+          'ESTUDIANTE nunca recibe SOLO_DOCENTES ni no aprobados; el filtro visibility solo aplica a ADMIN y DOCENTE. instituteId se resuelve vía materia y carrera.',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'createdAt:asc',
+                'createdAt:desc',
+                'title:asc',
+                'title:desc',
+                'downloadCount:asc',
+                'downloadCount:desc',
+              ],
+              default: 'createdAt:desc',
+            },
+          },
+          { name: 'instituteId', in: 'query', schema: { type: 'integer' } },
+          { name: 'subjectId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'academicPeriodId',
+            in: 'query',
+            schema: { type: 'integer' },
+          },
+          { name: 'authorId', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'materialType',
+            in: 'query',
+            schema: { type: 'string', enum: MATERIAL_TYPES },
+          },
+          {
+            name: 'visibility',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: MATERIAL_VISIBILITIES,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description:
+              'Colección paginada de MaterialResource, sin currentVersionDetail.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: ref('MaterialResource'),
+                    },
+                  },
+                },
+              ],
+            }),
+          },
+          401: MaterialErrors[401],
+          422: MaterialErrors[422],
+        },
+      },
+      post: {
+        tags: ['Materiales'],
+        summary: 'Crear material con su primera versión (6.8.2)',
+        description:
+          'DOCENTE o ADMIN. El autor lo fija el token; el DOCENTE debe tener una SubjectAssignment para la materia. Crea la versión 1 con checksum SHA-256 y registra MATERIAL_UPLOADED.',
+        requestBody: multipart(ref('CreateMaterialRequest'), true),
+        responses: {
+          201: {
+            description: 'MaterialResource con currentVersionDetail.',
+            ...json(envelope(ref('MaterialDetailResource'))),
+          },
+          400: MaterialErrors[400],
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          413: MaterialErrors[413],
+          415: MaterialErrors[415],
+          422: MaterialErrors[422],
+        },
+      },
+    },
+    '/materials/{id}': {
+      parameters: [idParam],
+      get: {
+        tags: ['Materiales'],
+        summary: 'Obtener material (6.8.3)',
+        description: 'Incluye el detalle de la versión vigente.',
+        responses: {
+          200: {
+            description: 'MaterialResource con currentVersionDetail.',
+            ...json(envelope(ref('MaterialDetailResource'))),
+          },
+          401: MaterialErrors[401],
+          404: MaterialErrors[404],
+        },
+      },
+      patch: {
+        tags: ['Materiales'],
+        summary: 'Editar los datos del material (6.8.4)',
+        description:
+          'Autor o ADMIN. Actualización parcial; nunca cambia el archivo. isApproved solo lo aplica ADMIN.',
+        requestBody: {
+          required: true,
+          ...json(ref('UpdateMaterialRequest')),
+        },
+        responses: {
+          200: {
+            description: 'MaterialResource actualizado.',
+            ...json(envelope(ref('MaterialResource'))),
+          },
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+          422: MaterialErrors[422],
+        },
+      },
+      delete: {
+        tags: ['Materiales'],
+        summary: 'Eliminar material (6.8.5, baja lógica)',
+        description:
+          'Autor o ADMIN. Sus versiones dejan de ser descargables; el historial queda para auditoría.',
+        responses: {
+          200: {
+            description: 'data en null con mensaje de confirmación.',
+            ...json(envelope({ nullable: true, example: null })),
+          },
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+        },
+      },
+    },
+    '/materials/{id}/download': {
+      parameters: [idParam],
+      get: {
+        tags: ['Materiales'],
+        summary: 'Descargar la versión vigente (6.8.6)',
+        description:
+          'Binario sin envoltura JSON. Cada descarga incrementa downloadCount. Un estudiante con material SOLO_DOCENTES recibe 404.',
+        responses: {
+          200: binaryResponse('Archivo binario de la versión vigente.'),
+          401: MaterialErrors[401],
+          404: MaterialErrors[404],
+          503: MaterialErrors[503],
+        },
+      },
+    },
+    '/materials/{id}/versions': {
+      parameters: [idParam],
+      get: {
+        tags: ['Materiales'],
+        summary: 'Historial de versiones (6.8.7, solo DOCENTE o ADMIN)',
+        description: 'De la versión más reciente a la más antigua.',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'versionNumber:asc',
+                'versionNumber:desc',
+                'createdAt:asc',
+                'createdAt:desc',
+              ],
+              default: 'versionNumber:desc',
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Colección paginada de MaterialVersionResource.',
+            ...json({
+              allOf: [
+                ref('PaginatedEnvelope'),
+                {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: ref('MaterialVersionResource'),
+                    },
+                  },
+                },
+              ],
+            }),
+          },
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+        },
+      },
+      post: {
+        tags: ['Materiales'],
+        summary: 'Subir una versión nueva (6.8.8)',
+        description:
+          'Autor o ADMIN. El DOCENTE debe conservar su asignación. El consecutivo currentVersion + 1 lo fija el backend; auditoría PLANEACION_VERSIONED o MATERIAL_VERSIONED.',
+        requestBody: multipart(ref('CreateMaterialVersionRequest'), true),
+        responses: {
+          201: {
+            description: 'MaterialVersionResource creado.',
+            ...json(envelope(ref('MaterialVersionResource'))),
+          },
+          400: MaterialErrors[400],
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+          413: MaterialErrors[413],
+          415: MaterialErrors[415],
+        },
+      },
+    },
+    '/materials/{id}/versions/{versionNumber}': {
+      parameters: [idParam, versionNumberParam],
+      get: {
+        tags: ['Materiales'],
+        summary: 'Obtener metadatos de una versión (6.8.9)',
+        description: 'Solo DOCENTE o ADMIN; sin binario y sin storagePath.',
+        responses: {
+          200: {
+            description: 'MaterialVersionResource.',
+            ...json(envelope(ref('MaterialVersionResource'))),
+          },
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+        },
+      },
+    },
+    '/materials/{id}/versions/{versionNumber}/download': {
+      parameters: [idParam, versionNumberParam],
+      get: {
+        tags: ['Materiales'],
+        summary: 'Descargar una versión concreta (6.8.10)',
+        description:
+          'Solo DOCENTE o ADMIN. Binario sin envoltura JSON; incrementa downloadCount.',
+        responses: {
+          200: binaryResponse('Archivo binario de la versión indicada.'),
+          401: MaterialErrors[401],
+          403: MaterialErrors[403],
+          404: MaterialErrors[404],
+          503: MaterialErrors[503],
+        },
+      },
+    },
     '/audit-logs': {
       get: {
         tags: ['Auditoría'],
@@ -1757,6 +2082,193 @@ const openApiDocument = {
             },
           },
           academicPeriod: ref('PeriodSummary'),
+        },
+      },
+      MaterialResource: {
+        type: 'object',
+        description:
+          'MaterialResource (5.4.9). La proyección de author no expone correo, matrícula ni rol.',
+        required: [
+          'id',
+          'subjectId',
+          'authorId',
+          'academicPeriodId',
+          'title',
+          'materialType',
+          'visibility',
+          'currentVersion',
+          'downloadCount',
+          'isApproved',
+          'createdAt',
+          'updatedAt',
+          'author',
+          'subject',
+          'academicPeriod',
+        ],
+        properties: {
+          id: { type: 'integer', example: 8 },
+          subjectId: { type: 'integer', example: 3 },
+          authorId: { type: 'integer', example: 7 },
+          academicPeriodId: { type: 'integer', example: 2 },
+          title: {
+            type: 'string',
+            maxLength: 220,
+            example: 'Planeación didáctica 2026-2',
+          },
+          description: { type: 'string', nullable: true },
+          materialType: {
+            type: 'string',
+            enum: MATERIAL_TYPES,
+            example: 'PLANEACION',
+          },
+          visibility: {
+            type: 'string',
+            enum: MATERIAL_VISIBILITIES,
+            example: 'ESTUDIANTES_Y_DOCENTES',
+          },
+          currentVersion: {
+            type: 'integer',
+            readOnly: true,
+            example: 1,
+            description: 'Solo aumenta al subir una versión nueva.',
+          },
+          syllabusChangesNote: { type: 'string', nullable: true },
+          downloadCount: {
+            type: 'integer',
+            readOnly: true,
+            example: 0,
+            description: 'Solo lo incrementa una descarga exitosa.',
+          },
+          isApproved: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          author: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer', example: 7 },
+              firstName: { type: 'string', example: 'Wilver Alfredo' },
+              lastName: { type: 'string', example: 'Flores Santiago' },
+            },
+          },
+          subject: ref('SubjectSummary'),
+          academicPeriod: ref('PeriodSummary'),
+        },
+      },
+      MaterialDetailResource: {
+        allOf: [
+          ref('MaterialResource'),
+          {
+            type: 'object',
+            properties: {
+              currentVersionDetail: ref('MaterialVersionResource'),
+            },
+          },
+        ],
+        description:
+          'MaterialResource con la versión vigente; solo en 6.8.2 y 6.8.3.',
+      },
+      MaterialVersionResource: {
+        type: 'object',
+        description:
+          'MaterialVersionResource (5.4.10). Nunca incluye storagePath.',
+        required: [
+          'id',
+          'materialId',
+          'versionNumber',
+          'originalFileName',
+          'mimeType',
+          'fileSizeBytes',
+          'checksumSha256',
+          'uploadedBy',
+          'createdAt',
+        ],
+        properties: {
+          id: { type: 'integer', example: 21 },
+          materialId: { type: 'integer', example: 8 },
+          versionNumber: { type: 'integer', example: 2 },
+          originalFileName: {
+            type: 'string',
+            maxLength: 255,
+            example: 'planeacion-dsd2303-2026-2-v2.pdf',
+          },
+          mimeType: { type: 'string', example: 'application/pdf' },
+          fileSizeBytes: {
+            type: 'integer',
+            minimum: 1,
+            example: 490204,
+            description: 'Calculado por el backend desde el archivo recibido.',
+          },
+          checksumSha256: {
+            type: 'string',
+            pattern: '^[0-9a-f]{64}$',
+            example: '<sha256>',
+            description: 'SHA-256 del contenido calculado por el backend.',
+          },
+          changelog: { type: 'string', nullable: true },
+          uploadedBy: { type: 'integer', example: 7 },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateMaterialRequest: {
+        type: 'object',
+        description:
+          'multipart/form-data (5.5.12). authorId, currentVersion, downloadCount e isApproved los fija el backend.',
+        required: [
+          'subjectId',
+          'academicPeriodId',
+          'title',
+          'materialType',
+          'file',
+        ],
+        properties: {
+          subjectId: { type: 'string', example: '3' },
+          academicPeriodId: { type: 'string', example: '2' },
+          title: {
+            type: 'string',
+            maxLength: 220,
+            example: 'Planeación didáctica 2026-2',
+          },
+          description: { type: 'string', nullable: true },
+          materialType: { type: 'string', enum: MATERIAL_TYPES },
+          visibility: {
+            type: 'string',
+            enum: MATERIAL_VISIBILITIES,
+            default: 'ESTUDIANTES_Y_DOCENTES',
+          },
+          syllabusChangesNote: { type: 'string', nullable: true },
+          changelog: { type: 'string', nullable: true },
+          file: {
+            type: 'string',
+            format: 'binary',
+            description: 'Máximo 25 MB; PDF, Word, PowerPoint o Excel.',
+          },
+        },
+      },
+      UpdateMaterialRequest: {
+        type: 'object',
+        description:
+          'Todos los campos son opcionales; se envía al menos uno. Nunca cambia el archivo. isApproved solo lo aplica ADMIN.',
+        properties: {
+          title: { type: 'string', maxLength: 220 },
+          description: { type: 'string', nullable: true },
+          materialType: { type: 'string', enum: MATERIAL_TYPES },
+          visibility: { type: 'string', enum: MATERIAL_VISIBILITIES },
+          syllabusChangesNote: { type: 'string', nullable: true },
+          isApproved: { type: 'boolean' },
+        },
+      },
+      CreateMaterialVersionRequest: {
+        type: 'object',
+        description:
+          'multipart/form-data (5.5.14). versionNumber lo asigna el backend; las mismas reglas de archivo que en la creación.',
+        required: ['file'],
+        properties: {
+          changelog: { type: 'string', nullable: true },
+          file: {
+            type: 'string',
+            format: 'binary',
+            description: 'Máximo 25 MB; PDF, Word, PowerPoint o Excel.',
+          },
         },
       },
       DashboardSummaryResource: {

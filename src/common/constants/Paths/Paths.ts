@@ -42,6 +42,22 @@ const SUBJECT_ASSIGNMENTS = BASE + SUBJECT_ASSIGNMENTS_BASE;
 const subjectAssignmentById = (id: string | number) =>
   `${SUBJECT_ASSIGNMENTS}/${pp(id)}`;
 
+const MATERIALS_BASE = '/materials';
+const MATERIALS = BASE + MATERIALS_BASE;
+const materialById = (id: string | number) => `${MATERIALS}/${pp(id)}`;
+const materialDownload = (id: string | number) =>
+  `${materialById(id)}/download`;
+const materialVersions = (id: string | number) =>
+  `${materialById(id)}/versions`;
+const materialVersionByNumber = (
+  id: string | number,
+  versionNumber: string | number,
+) => `${materialVersions(id)}/${pp(versionNumber)}`;
+const materialVersionDownload = (
+  id: string | number,
+  versionNumber: string | number,
+) => `${materialVersionByNumber(id, versionNumber)}/download`;
+
 const AUDIT_BASE = '/audit-logs';
 const AUDIT = BASE + AUDIT_BASE;
 const auditLogById = (id: string | number) => `${AUDIT}/${pp(id)}`;
@@ -155,6 +171,36 @@ const Paths = {
       ...ep(SUBJECT_ASSIGNMENTS, '/:id', 'DELETE'),
       format: subjectAssignmentById,
     }, // 6.7.4
+  },
+
+  // Módulo 8: Materiales y versiones (6.8)
+  Materials: {
+    PATH: MATERIALS_BASE,
+    Get: ep(MATERIALS, '', 'GET'), // 6.8.1 Listar y buscar
+    Add: ep(MATERIALS, '', 'POST'), // 6.8.2 Crear con versión 1
+    GetOne: { ...ep(MATERIALS, '/:id', 'GET'), format: materialById }, // 6.8.3
+    Update: { ...ep(MATERIALS, '/:id', 'PATCH'), format: materialById }, // 6.8.4
+    Delete: { ...ep(MATERIALS, '/:id', 'DELETE'), format: materialById }, // 6.8.5
+    Download: {
+      ...ep(MATERIALS, '/:id/download', 'GET'),
+      format: materialDownload,
+    }, // 6.8.6
+    Versions: {
+      ...ep(MATERIALS, '/:id/versions', 'GET'),
+      format: materialVersions,
+    }, // 6.8.7
+    AddVersion: {
+      ...ep(MATERIALS, '/:id/versions', 'POST'),
+      format: materialVersions,
+    }, // 6.8.8
+    GetVersion: {
+      ...ep(MATERIALS, '/:id/versions/:versionNumber', 'GET'),
+      format: materialVersionByNumber,
+    }, // 6.8.9
+    DownloadVersion: {
+      ...ep(MATERIALS, '/:id/versions/:versionNumber/download', 'GET'),
+      format: materialVersionDownload,
+    }, // 6.8.10
   },
 
   // Módulo 9: Auditoría (6.9.1–6.9.2)

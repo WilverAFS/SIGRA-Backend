@@ -13,7 +13,10 @@ dist/
 .env
 .DS_Store
 
-# Configuración de herramientas de IA/editores (generada por prisma skills sync)
+# Archivos subidos por /materials (6.8)
+storage/
+
+# Configuraciï¿½n de herramientas de IA/editores (generada por prisma skills sync)
 .claude/
 .agents/
 .cursor/
