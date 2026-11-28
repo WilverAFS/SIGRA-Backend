@@ -160,11 +160,20 @@ async function addVersion(
   >,
 ): Promise<MaterialVersion | null> {
   return prisma.$transaction(async (tx) => {
-    const material = await tx.material.findUnique({
-      where: { id: materialId },
-    });
-    if (!material || material.deletedAt) return null;
-    const versionNumber = material.currentVersion + 1;
+    // Bloquear la fila evita que dos subidas concurrentes lean el mismo
+    // currentVersion: la segunda espera al commit y toma el consecutivo
+    // siguiente. Los parámetros van ligados, nunca interpolados.
+    const locked = await tx.$queryRaw<
+      { current_version: number; deleted_at: Date | null }[]
+    >(Prisma.sql`
+      SELECT current_version, deleted_at
+      FROM materials
+      WHERE id = ${materialId}
+      FOR UPDATE
+    `);
+    const material = locked[0];
+    if (!material || material.deleted_at) return null;
+    const versionNumber = material.current_version + 1;
     const version = await tx.materialVersion.create({
       data: {
         ...file,

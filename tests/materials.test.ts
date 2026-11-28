@@ -351,6 +351,29 @@ describe('Materiales y versiones (6.8)', { concurrency: false }, () => {
       );
     }
 
+    // Un DOCENTE sin asignación recibe 422 si la relación no existe: la
+    // comprobación de existencia va antes que la de asignación.
+    for (const [field, value] of [
+      ['subjectId', 9999],
+      ['academicPeriodId', 9999],
+    ] as const) {
+      const res = assertError(
+        await postMaterial(teacherBAuth, { [field]: value }),
+        422,
+        ErrorCodes.VALIDATION_ERROR,
+      );
+      assert.deepEqual(
+        res.error.details?.map((detail) => detail.field),
+        [field],
+      );
+    }
+    // Guardia de regresión: con relaciones válidas, sigue exigiendo asignación.
+    assertError(
+      await postMaterial(teacherBAuth),
+      403,
+      ErrorCodes.FORBIDDEN_SUBJECT_ASSIGNMENT,
+    );
+
     await assign();
     assert.equal((await postMaterial(teacherBAuth)).status, 201);
   });
@@ -559,6 +582,36 @@ describe('Materiales y versiones (6.8)', { concurrency: false }, () => {
         .set('Authorization', studentAuth),
       403,
       ErrorCodes.FORBIDDEN_ROLE,
+    );
+  });
+
+  it('6.8.8: subidas concurrentes se serializan y obtienen los consecutivos 2 y 3', async () => {
+    const created: OkRes<MaterialDetailResource> =
+      await postMaterial(teacherAAuth);
+    const id: number = created.body.data.id;
+
+    const [first, second] = await Promise.all([
+      postVersion(teacherAAuth, id),
+      postVersion(teacherAAuth, id),
+    ]);
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    assert.deepEqual(
+      [first.body.data.versionNumber, second.body.data.versionNumber].sort(
+        (a, b) => a - b,
+      ),
+      [2, 3],
+    );
+
+    const one: OkRes<MaterialDetailResource> = await agent
+      .get(P.GetOne.format(id))
+      .set('Authorization', teacherAAuth);
+    assert.equal(one.status, 200);
+    assert.equal(one.body.data.currentVersion, 3);
+    assert.equal(one.body.data.currentVersionDetail.versionNumber, 3);
+    assert.equal(
+      await prisma.materialVersion.count({ where: { materialId: id } }),
+      3,
     );
   });
 

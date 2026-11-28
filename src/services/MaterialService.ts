@@ -147,13 +147,10 @@ async function create(
   if (viewer.role === 'ESTUDIANTE') {
     throw forbidden(ErrorCodes.FORBIDDEN_ROLE);
   }
-  if (
-    viewer.role === 'DOCENTE' &&
-    !(await MaterialRepo.teacherAssigned(viewer.id, input.subjectId))
-  ) {
-    throw forbidden(ErrorCodes.FORBIDDEN_SUBJECT_ASSIGNMENT);
-  }
 
+  // La existencia de las relaciones se comprueba antes que la asignación:
+  // una materia inexistente no puede generar un error de asignación (422,
+  // no 403), también para el DOCENTE.
   const missing: { field: string; message: string }[] = [];
   if (!(await MaterialRepo.subjectExists(input.subjectId))) {
     missing.push({
@@ -168,6 +165,14 @@ async function create(
     });
   }
   if (missing.length > 0) throw new ValidationError(missing);
+
+  if (
+    viewer.role === 'DOCENTE' &&
+    !(await MaterialRepo.teacherAssigned(viewer.id, input.subjectId))
+  ) {
+    throw forbidden(ErrorCodes.FORBIDDEN_SUBJECT_ASSIGNMENT);
+  }
+
   if (!file) {
     throw new RouteError(
       ErrorCodes.BAD_REQUEST,
