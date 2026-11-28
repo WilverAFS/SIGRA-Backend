@@ -30,6 +30,8 @@ export const Env = {
   // Auditoría asíncrona vía RabbitMQ (contrato 6.9). En `false` los eventos
   // se guardan directo en la BD (lo usan los tests).
   AUDIT_ASYNC: (process.env.AUDIT_ASYNC ?? 'true').toLowerCase() !== 'false',
+  // Almacenamiento local de los archivos de MaterialVersion (6.8.2 y 6.8.8).
+  UPLOAD_DIR: process.env.UPLOAD_DIR ?? './storage/uploads',
 } as const;
 
 // ========================================================================= //

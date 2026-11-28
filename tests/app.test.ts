@@ -111,6 +111,12 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
       '/subjects/{id}',
       '/subject-assignments',
       '/subject-assignments/{id}',
+      '/materials',
+      '/materials/{id}',
+      '/materials/{id}/download',
+      '/materials/{id}/versions',
+      '/materials/{id}/versions/{versionNumber}',
+      '/materials/{id}/versions/{versionNumber}/download',
       '/audit-logs',
       '/audit-logs/{id}',
       '/dashboard/summary',
@@ -119,8 +125,8 @@ describe('Comportamiento transversal (cap. 2.4, 3 y 4)', () => {
     }
     assert.equal(
       Object.keys(doc.paths).length,
-      26,
-      'deben estar documentados exactamente los 26 paths del contrato',
+      32,
+      'deben estar documentados exactamente los 32 paths del contrato',
     );
     for (const path of ['/auth/register', '/auth/login', '/auth/refresh']) {
       assert.deepEqual(doc.paths[path]?.post?.security, []);

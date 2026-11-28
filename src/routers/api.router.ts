@@ -11,6 +11,7 @@ import authRouter from './auth.router.ts';
 import careerRouter from './career.router.ts';
 import dashboardRouter from './dashboard.router.ts';
 import instituteRouter from './institute.router.ts';
+import materialRouter from './material.router.ts';
 import roleRouter from './role.router.ts';
 import subjectAssignmentRouter from './subject-assignment.router.ts';
 import subjectRouter from './subject.router.ts';
@@ -54,6 +55,8 @@ apiRouter.use(Paths.AcademicPeriods.PATH, academicPeriodRouter);
 apiRouter.use(Paths.Subjects.PATH, subjectRouter);
 // 6.7 Asignaciones → /api/v1/subject-assignments/...
 apiRouter.use(Paths.SubjectAssignments.PATH, subjectAssignmentRouter);
+// 6.8 Materiales y versiones → /api/v1/materials/...
+apiRouter.use(Paths.Materials.PATH, materialRouter);
 
 // 6.9 Auditoría → /api/v1/audit-logs/...
 apiRouter.use(Paths.AuditLogs.PATH, auditRouter);
